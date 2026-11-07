@@ -176,3 +176,14 @@ Plan: [reports/phase2c-plan.md](reports/phase2c-plan.md). 37 verify failures sto
 (`config/phase2b-drops.csv`); patch 0007 keeps drum words out of tonal folder names; patch 0008
 groups foley by its files' names and splits closed hats. Previews re-rendered with the new groups;
 rebuilt with your approval: 29,849 files, verify passed, master in place. Acapellas: waiting for your choice.
+
+### Phase 3: device sync (2026-11-06/07)
+
+All 11 projects backed up with Elektroid (`~/sample-work/device/backups/2026-11-06-elektroid/`, the
+three "NEW PROJECT" slots in `slot-6/7/8/`); 71 samples in use, all matched on the +Drive by path and
+hash. Uploads run at ~77 KB/s plus ~1.6 s a file, so only one-shots and tonal folders go on the
+device (12,604 files, 1.68 GB). After 3,209 files the layout moved to four levels: the uploaded
+folders were moved (elektroid `sample:mv`, counts checked) into `DRUMS/`, and the rest upload into
+`DRUMS`, `TONAL`, `VOX`, `FX`, matching the `digitakt_2_50_4` render (patch 0009). The Live/XO
+render is `out/full2/preview/generic_folder_4`. After the upload, `scripts/delete_replaced.py`
+removes the 2,987 old one-shot/tonal samples they replace (never a project's).

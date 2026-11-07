@@ -50,6 +50,7 @@ Then update the base commit here and in `src/sample_shepherd/organize/fourier.py
 | 0006 | Groups FX foley folders by the material in their name | Changes output | Generic |
 | 0007 | Keeps a phrase's drum word out of a tonal folder's name (fixes a verify failure) | Changes output | Generic |
 | 0008 | Finer groups: foley by its files' names, closed hats by folder words | Changes output | Generic |
+| 0009 | Section folders above the categories at four levels (`CATEGORY_SECTIONS`: DRUMS, LOOPS, TONAL, VOX, FX) | **Yes:** the `*_4` profiles | Generic; builds on 0004 |
 
 ## Offering them upstream
 

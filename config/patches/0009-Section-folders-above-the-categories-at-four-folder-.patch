@@ -1,0 +1,186 @@
+From 3bc083a640d595d6d59e603067ea2bf1f4922e8e Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Sat, 7 Nov 2026 00:37:37 -0700
+Subject: [PATCH] Section folders above the categories at four folder levels
+ (DRUMS/LOOPS/TONAL/VOX/FX)
+
+---
+ config/tunables.yaml               |  1 +
+ src/fourier/packs/curate_config.py | 20 +++++++++++
+ src/fourier/packs/render.py        | 10 ++++--
+ tests/data/tunables_snapshot.json  | 53 ++++++++++++++++++++++++++++++
+ tests/test_render_sections.py      | 23 +++++++++++++
+ 5 files changed, 105 insertions(+), 2 deletions(-)
+ create mode 100644 tests/test_render_sections.py
+
+diff --git a/config/tunables.yaml b/config/tunables.yaml
+index 7e8eb3e..c4fd409 100644
+--- a/config/tunables.yaml
++++ b/config/tunables.yaml
+@@ -202,6 +202,7 @@ curate_config:
+   GROUP_MIN_FOLDERS: engine
+   GROUP_FALLBACK: engine
+   FOLDER_GROUPS: rules
++  CATEGORY_SECTIONS: rules
+   NAME_TOPK: taste
+   NAME_SUPPORT_MIN: taste
+   NAME_SUPPORT_FULL: taste
+diff --git a/src/fourier/packs/curate_config.py b/src/fourier/packs/curate_config.py
+index 58297b2..c523e3b 100644
+--- a/src/fourier/packs/curate_config.py
++++ b/src/fourier/packs/curate_config.py
+@@ -884,6 +884,26 @@ CATEGORIES_OFF = _tunable("CATEGORIES_OFF", set())
+ DERIVED_DIRS = _tunable("DERIVED_DIRS", _tax.sets())
+ 
+ 
++# A render's top folder level above the categories (paths.folder_depth 4:
++# SECTION/CATEGORY/group/family). Fewer, bigger folders first on a device's root, which
++# also holds the user's own folders. A category in no section stays at the top level.
++CATEGORY_SECTIONS = _tunable("CATEGORY_SECTIONS", {
++    "DRUMS": ["KITS", "KICKS", "SNARES", "CLAPS", "HATS", "CYMBALS", "TOMS", "PERC"],
++    "LOOPS": ["SLICE", "DRUMLOOPS", "PHRASES"],
++    "TONAL": ["SUB", "SYNTH", "STABS", "PADS", "PIANO", "ACOUSTIC", "WAVES"],
++    "VOX": ["VOX"],
++    "FX": ["FX", "BLIPS"],
++})
++
++
++def category_section(category: str) -> str | None:
++    """The section folder a category sits in at folder_depth 4 ('DRUMS'), or None."""
++    for section, cats in CATEGORY_SECTIONS.items():
++        if category in cats:
++            return section
++    return None
++
++
+ def category_dir(category: str) -> str:
+     """Device folder for a category: '01_KICKS'; a category not in the order keeps its name."""
+     if category in DERIVED_DIRS:
+diff --git a/src/fourier/packs/render.py b/src/fourier/packs/render.py
+index 12216e8..318f787 100644
+--- a/src/fourier/packs/render.py
++++ b/src/fourier/packs/render.py
+@@ -214,12 +214,16 @@ def _rel_dest(category: str, family: str, stem: str, allowed_sub: int, device=No
+               group: str | None = None) -> Path:
+     """Where a master file lands in the render, relative to the device root. The category
+     folder is numbered in play order (curate_config.category_dir: '01_KICKS'); with three
+-    levels and a group (packs/folder_groups.py) the family folder sits in the group's."""
+-    from .curate_config import category_dir
++    levels and a group (packs/folder_groups.py) the family folder sits in the group's; with
++    four, the category folder sits in its section's (curate_config.CATEGORY_SECTIONS: DRUMS)."""
++    from .curate_config import category_dir, category_section
+     ext = _ext(device)
+     grouped = bool(group) and allowed_sub >= 3
++    section = category_section(category) if allowed_sub >= 4 else None
+     if ext != ".wav" or _names_apply(device):
+         cdir = Path(_device_name(_sanitize_filename(category_dir(category)), device))
++        if section:
++            cdir = Path(_device_name(_sanitize_filename(section), device)) / cdir
+         if grouped:
+             cdir = cdir / _device_name(_sanitize_filename(group, None), device)
+         if allowed_sub >= 2:
+@@ -227,6 +231,8 @@ def _rel_dest(category: str, family: str, stem: str, allowed_sub: int, device=No
+                     / _device_name(_sanitize_filename(stem, None), device, ext))
+         return cdir / _device_name(_sanitize_filename(f"{family}__{stem}", None), device, ext)
+     cdir = Path(_sanitize_filename(category_dir(category)))
++    if section:
++        cdir = Path(_sanitize_filename(section)) / cdir
+     if grouped:
+         cdir = cdir / _sanitize_filename(group, None)
+     # the file's name is the master's (curate: exporter.canonical_stem), the same on every
+diff --git a/tests/data/tunables_snapshot.json b/tests/data/tunables_snapshot.json
+index caf9ebf..370e1d4 100644
+--- a/tests/data/tunables_snapshot.json
++++ b/tests/data/tunables_snapshot.json
+@@ -10367,5 +10367,58 @@
+     ]
+    ]
+   }
++ },
++ "curate_config.CATEGORY_SECTIONS": {
++  "type": "dict",
++  "value": {
++   "$dict": [
++    [
++     "DRUMS",
++     [
++      "KITS",
++      "KICKS",
++      "SNARES",
++      "CLAPS",
++      "HATS",
++      "CYMBALS",
++      "TOMS",
++      "PERC"
++     ]
++    ],
++    [
++     "LOOPS",
++     [
++      "SLICE",
++      "DRUMLOOPS",
++      "PHRASES"
++     ]
++    ],
++    [
++     "TONAL",
++     [
++      "SUB",
++      "SYNTH",
++      "STABS",
++      "PADS",
++      "PIANO",
++      "ACOUSTIC",
++      "WAVES"
++     ]
++    ],
++    [
++     "VOX",
++     [
++      "VOX"
++     ]
++    ],
++    [
++     "FX",
++     [
++      "FX",
++      "BLIPS"
++     ]
++    ]
++   ]
++  }
+  }
+ }
+\ No newline at end of file
+diff --git a/tests/test_render_sections.py b/tests/test_render_sections.py
+new file mode 100644
+index 0000000..9d62a1e
+--- /dev/null
++++ b/tests/test_render_sections.py
+@@ -0,0 +1,23 @@
++"""A fourth folder level puts each category under its section (curate_config.CATEGORY_SECTIONS)."""
++from pathlib import Path
++
++from fourier.packs.curate_config import CATEGORY_ORDER, CATEGORY_SECTIONS, DERIVED_DIRS, category_section
++from fourier.packs.render import _rel_dest
++
++
++def test_four_levels_put_the_category_under_its_section():
++    assert _rel_dest("KICKS", "punchy-1", "BD_01", 4, group="punchy") == \
++        Path("DRUMS/01_KICKS/punchy/punchy-1/BD_01.wav")
++    assert _rel_dest("SLICE", "amen", "amen_01", 4) == Path("LOOPS/00_SLICE/amen/amen_01.wav")
++
++
++def test_three_levels_are_unchanged():
++    assert _rel_dest("KICKS", "punchy-1", "BD_01", 3, group="punchy") == \
++        Path("01_KICKS/punchy/punchy-1/BD_01.wav")
++
++
++def test_every_category_has_exactly_one_section():
++    cats = [c for cs in CATEGORY_SECTIONS.values() for c in cs]
++    assert len(cats) == len(set(cats))
++    assert set(CATEGORY_ORDER) | set(DERIVED_DIRS) <= set(cats)
++    assert category_section("NOT_A_CATEGORY") is None
+-- 
+2.55.0
+

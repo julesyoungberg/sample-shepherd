@@ -151,10 +151,10 @@ Fourier's own commands work on the same setup: `fourier open report` to listen a
 
 ```bash
 sample-shepherd export profiles                                     # what's available
-sample-shepherd export render generic_folder_3 --out ~/sample-shepherd/renders/live --dry-run
-sample-shepherd export render generic_folder_3 --out ~/sample-shepherd/renders/live    # Live / XO
-sample-shepherd export render digitakt_2_50_3 --out ~/sample-shepherd/renders/digitakt
-sample-shepherd export check ~/sample-shepherd/renders/digitakt --profile digitakt_2_50_3
+sample-shepherd export render generic_folder_4 --out ~/sample-shepherd/renders/live --dry-run
+sample-shepherd export render generic_folder_4 --out ~/sample-shepherd/renders/live    # Live / XO
+sample-shepherd export render digitakt_2_50_4 --out ~/sample-shepherd/renders/digitakt
+sample-shepherd export check ~/sample-shepherd/renders/digitakt --profile digitakt_2_50_4
 ```
 
 `export check` reads the render and reports anything the device would refuse or hide: too
@@ -274,6 +274,9 @@ Profiles are YAML in Fourier's format. Bundled ones (from [config/devices](confi
 - `digitakt_2_50`: Digitakt II, 48 kHz/16-bit, at most 50 files a folder, two levels.
 - `digitakt_2_50_3`: the same with three levels, `CATEGORY/group/family`.
 - `generic_folder_3`: a plain folder for Live or XO, 44.1 kHz/24-bit, three levels.
+- `digitakt_2_50_4`, `generic_folder_4`: four levels, with section folders on top:
+  `SECTION/CATEGORY/group/family`, sections `DRUMS`, `LOOPS`, `TONAL`, `VOX`, `FX`
+  (patch 0009). Fewer, bigger folders at a device's root, next to your own folders.
 
 Fourier's own profiles (`digitakt_2`, `generic_folder`, `m8`, ...) work too. To write your
 own, see [docs/adding-a-profile.md](docs/adding-a-profile.md).
@@ -281,7 +284,7 @@ own, see [docs/adding-a-profile.md](docs/adding-a-profile.md).
 ## Fourier and our patches
 
 Fourier is an external command here, found through `[fourier] command` or `PATH`, with the
-environment from `[fourier] env`. Our 8 patches to it live in
+environment from `[fourier] env`. Our 9 patches to it live in
 [config/patches](config/patches); [docs/fourier-patches.md](docs/fourier-patches.md) says
 what each does, whether our config needs it, and how it could go upstream.
 
