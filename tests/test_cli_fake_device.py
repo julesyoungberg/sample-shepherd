@@ -209,3 +209,34 @@ def test_used_refuses_an_incomplete_backup(run, world, fake_device, tmp_path, mo
     (w / "b" / "slots.csv").unlink()
     code, out = run(*used)
     assert code == 2 and "no slots.csv" in out
+
+
+def test_read_only_device_commands_dry_run_without_contacting_it(run, world, fake_device):
+    for args, shown in [(("device", "ls"), " ld"), (("device", "info"), " info 1"),
+                        (("projects", "ls"), " elektron:project:ls 1:/")]:
+        code, out = run(*args, "--dry-run")
+        assert code == 0 and "would run:" in out and shown in out, out
+    assert calls(fake_device) == []
+
+
+def test_config_init(run, tmp_path):
+    target = tmp_path / "xdg" / "sample-shepherd" / "config.toml"
+    code, out = run("config", "init", "--dry-run")
+    assert code == 0 and str(target) in out and not target.exists()
+    code, out = run("config", "init")
+    assert code == 0 and target.is_file()
+    code, out = run("config", "show")
+    assert str(target) in out and "fourier-home" in out      # FOURIER_HOME from the starter file
+    code, out = run("config", "init")
+    assert code == 2 and "already exists" in out
+
+
+def test_config_init_notes_a_config_that_takes_precedence(run, tmp_path):
+    (tmp_path / "sample-shepherd.toml").write_text("")          # ./sample-shepherd.toml wins lookup
+    code, out = run("config", "init")
+    assert code == 0 and "takes precedence" in out
+
+
+def test_config_init_elsewhere_says_how_to_use_it(run, tmp_path):
+    code, out = run("config", "init", "--path", str(tmp_path / "mine.toml"))
+    assert code == 0 and "--config" in out and "SAMPLE_SHEPHERD_CONFIG" in out

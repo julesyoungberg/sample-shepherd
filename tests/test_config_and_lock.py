@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from sample_shepherd import config
@@ -78,3 +80,14 @@ def test_lock_is_per_device_not_per_work_dir(tmp_path, monkeypatch):
     assert a.lock_file == b.lock_file == tmp_path / "sample-shepherd-elektron-1.lock"
     b.device_id = "2"
     assert a.lock_file != b.lock_file
+
+
+def test_example_configs_load_and_name_no_ones_home_layout(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    example = config.example_config()
+    assert example.is_file()
+    cfg = config.load(str(example))
+    assert cfg.elektroid_cli == "elektroid-cli" and cfg.fourier_command == "fourier"
+    assert "sample-work" not in example.read_text()
+    original = Path(__file__).parents[1] / "examples" / "original-build.toml"
+    assert config.load(str(original)).protected[0] == "/factory"

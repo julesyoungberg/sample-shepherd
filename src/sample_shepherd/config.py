@@ -63,9 +63,22 @@ def find_config_file(explicit: str | None = None) -> Path | None:
     local = Path.cwd() / "sample-shepherd.toml"
     if local.is_file():
         return local
-    xdg = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-    user = xdg / "sample-shepherd" / "config.toml"
+    user = user_config_path()
     return user if user.is_file() else None
+
+
+def user_config_path() -> Path:
+    """$XDG_CONFIG_HOME/sample-shepherd/config.toml (~/.config/... by default)."""
+    xdg = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    return xdg / "sample-shepherd" / "config.toml"
+
+
+def example_config() -> Path:
+    """The starter config: bundled in the wheel, or examples/ in a checkout."""
+    pkg = Path(__file__).resolve().parent / "example-config.toml"
+    if pkg.is_file():
+        return pkg
+    return Path(__file__).resolve().parents[2] / "examples" / "sample-shepherd.toml"
 
 
 def _path(base: Path, value: str) -> Path:
