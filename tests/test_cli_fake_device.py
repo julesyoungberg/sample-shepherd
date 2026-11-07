@@ -226,6 +226,12 @@ def test_config_init(run, tmp_path):
     code, out = run("config", "init")
     assert code == 0 and target.is_file()
     code, out = run("config", "show")
-    assert str(target) in out and "elektroid-cli" in out
+    assert str(target) in out and "fourier-home" in out      # FOURIER_HOME from the starter file
     code, out = run("config", "init")
     assert code == 2 and "already exists" in out
+
+
+def test_config_init_notes_a_config_that_takes_precedence(run, tmp_path):
+    (tmp_path / "sample-shepherd.toml").write_text("")          # ./sample-shepherd.toml wins lookup
+    code, out = run("config", "init")
+    assert code == 0 and "takes precedence" in out

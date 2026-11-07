@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from sample_shepherd import config
@@ -87,5 +89,5 @@ def test_example_configs_load_and_name_no_ones_home_layout(tmp_path, monkeypatch
     cfg = config.load(str(example))
     assert cfg.elektroid_cli == "elektroid-cli" and cfg.fourier_command == "fourier"
     assert "sample-work" not in example.read_text()
-    original = example.with_name("original-build.toml")
+    original = Path(__file__).parents[1] / "examples" / "original-build.toml"
     assert config.load(str(original)).protected[0] == "/factory"
