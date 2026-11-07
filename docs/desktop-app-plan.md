@@ -39,6 +39,7 @@ dependencies were installed.
 |---|---|---|
 | Tauri 2 | Electron | ~10 MB shell instead of ~150 MB; sidecars and scoped permissions are built in. Webview differences (WebKit on macOS and Linux, WebView2 on Windows) are the cost, so we test on all three |
 | Svelte 5 | React | Fewer lines per screen, reactivity without hooks rules, scoped CSS. Jules's preference for less code wins |
+| Svelte 5 | SolidJS | Solid is just as lean (its fine-grained signals are what Svelte 5's runes were modeled on) and Jules likes its look. But its ecosystem is smaller: no headless kit as complete as Bits UI, thinner TanStack adapters, fewer Tauri examples. Svelte gets the same small code with more off-the-shelf pieces |
 | SvelteKit SPA | plain Vite + Svelte | File-based routes for ~8 screens, and it's Tauri's documented path. No server rendering |
 | Tailwind v4 + tokens | CSS-in-JS, a UI kit | Tokens in one `@theme` block make the identity enforceable. Utilities keep components short |
 | Bits UI | Melt UI, writing our own | Headless, Svelte 5 native, handles focus and keyboard and ARIA for us |
@@ -164,6 +165,14 @@ manual, not like a SaaS dashboard.
   panel corners, hand-set folder numbers (`01 KICKS`) mirroring the device's folder
   layout.
 
+**Bits UI doesn't limit the look.** It ships no styles: each part (`Dialog.Content`,
+`Select.Item`, …) renders a plain element we give classes to, exposes its state as data
+attributes (`data-state="open"`, `data-highlighted`) to style against, and a `child`
+snippet lets us render our own element in its place. What it saves us is the hard,
+invisible part: focus trapping, keyboard navigation, typeahead, positioning and ARIA. That
+is a lot less code than writing those from scratch, and none of it shows. Where Bits UI has
+no component (the waveform, the maps, the transport), we write our own anyway.
+
 Before building screens, make a one-page style sheet in the app (`/dev/style` route):
 tokens, type scale, the category palette, buttons, inputs, a table, a waveform. Jules
 reviews that one page; every later screen reuses it.
@@ -222,6 +231,26 @@ Ordered by how much each helps; the first four are in scope for v1.
    gaps.
 7. **Transfer timeline** (SVG). Each sync session as a bar per file over time; shows
    stalls and how long the device took per MB. Built from the existing log CSVs.
+
+### Later: WebGL
+
+v1 is d3 for layout and math, drawn with SVG or canvas 2D. Each visual sits behind a small
+component boundary (data in, events out), so any one of them can move to WebGL later
+without touching the screens around it. Candidates, for when canvas runs out or for fun:
+
+- **Sound map in 3D** (`regl` or `three.js`): all 30,000 samples as points in a timbre
+  space you fly through; points pulse as they're auditioned, nearest neighbours light up.
+  WebGL handles that point count at 60 fps where canvas 2D struggles.
+- **Spectrogram waterfall:** the inspector's waveform as a scrolling, shaded spectrogram
+  during playback, computed with an `AnalyserNode` and drawn as a texture.
+- **+Drive map as a shader:** the storage grid as one instanced draw, so hover, zoom and the
+  sync animation (cells filling as uploads land) stay smooth on a full drive.
+- **Sync as a particle flow:** the plan's Sankey bands as streams of particles moving at the
+  link's real byte rate during a sync.
+
+Rules for these: same tokens and category palette as everything else, a 2D fallback when
+WebGL is unavailable or reduced motion is on, and nothing essential exists only in the
+WebGL view.
 
 ## Repository layout
 
