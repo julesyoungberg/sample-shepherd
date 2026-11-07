@@ -23,6 +23,9 @@ and its projects safe. Every flag is in the [command reference](reference.md);
 | `projects used --backups DIR --out CSV` | Samples the backed-up projects use | `CSV` |
 | `plan ... --out CSV` | Works out what to upload and delete | `CSV` |
 | `sync --plan CSV` | Carries out a plan, logging each step | **the device** |
+| `eval categories` | Scores category sorting (baselines, a Fourier master) against hand labels | nothing, or the `--json` file |
+| `eval import-ratings RATINGS --labels CSV` | Adds your Fourier Keep/Misfiled ratings to a label file | the label file |
+| `eval sample MASTER --out CSV` | A blank labeling sheet to audition | `CSV` (never overwrites) |
 
 ## Rules every command follows
 
@@ -139,6 +142,23 @@ Carries out a plan on the device.
   done. After 20 failed steps it stops; fix the cause and rerun.
 
 `sync --dry-run` prints the summary and time estimate and sends nothing.
+
+## eval
+
+Measures how well samples land in the right category. Reads label CSVs, Fourier manifests
+and ratings only; never audio, the library or a device. Details and how to read the numbers:
+[evaluation.md](../evaluation.md).
+
+- `eval categories` runs the baselines (`majority`, `name`, `folder`, `rules`) and any
+  `--predictions` (a Fourier master folder or a `path,category` CSV) on a label set, the
+  bundled seed set by default. `--provenance listened rated-keep rated-misfiled` limits it to
+  human labels, the only ones that measure real accuracy. `--fail-under rules=0.9` exits 1
+  below a floor.
+- `eval import-ratings` turns Keep and Misfiled ratings into labels (a Misfiled's label is
+  where it belongs). A human label replaces a rule-made one for the same path.
+- `eval sample` draws random placed samples from each category of a master into a sheet with
+  the category left blank, so you aren't anchored by Fourier's pick. Fill it in by ear, then
+  pass it as `--labels`.
 
 ## Dry runs and the device
 

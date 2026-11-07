@@ -174,10 +174,20 @@ environment from `[fourier] env`. Our 9 patches to it live in
 [config/patches](config/patches); [docs/fourier-patches.md](docs/fourier-patches.md) says
 what each does, whether our config needs it, and how it could go upstream.
 
+## Evaluating the sorting
+
+`sample-shepherd eval categories` measures how well samples land in the right category, against
+a hand-labeled set (paths only, no audio), with simple baselines (majority, file-name keywords,
+folder names, hand-written rules) to compare Fourier against. The bundled seed set is a regression
+suite, not yet an accuracy estimate: nobody has listened to it. See
+[docs/evaluation.md](docs/evaluation.md) for the metrics and how to grow a real test set from
+your ratings or a random sample.
+
 ## Repository layout
 
 ```
-src/sample_shepherd/   the package: cli.py, config.py, organize/, export/, sync/
+src/sample_shepherd/   the package: cli.py, config.py, organize/, export/, sync/, evaluate/
+eval/labels/           hand-labeled categories for `eval` (paths only)
 tests/                 pytest; tests/fake/elektroid-cli stands in for a device
 config/                Fourier config, device profiles, patches, curation decisions
 examples/              starter configs for sample-shepherd and Fourier

@@ -32,9 +32,10 @@ packages = ["src/sample_shepherd"]
 "config/devices" = "sample_shepherd/profiles"
 "config/patches" = "sample_shepherd/patches"
 "examples/sample-shepherd.toml" = "sample_shepherd/example-config.toml"
+"eval/labels" = "sample_shepherd/eval-labels"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/", "tests/", "config/devices/", "config/patches/", "docs/", "examples/", "README.md", "pyproject.toml"]
+include = ["src/", "tests/", "config/devices/", "config/patches/", "docs/", "eval/", "examples/", "README.md", "pyproject.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
