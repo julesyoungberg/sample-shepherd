@@ -44,8 +44,20 @@ bytes_per_second = 100000
 
 def test_unknown_setting_is_an_error(tmp_path):
     f = tmp_path / "c.toml"
-    f.write_text("typo = 1\n")
-    with pytest.raises(ValueError, match="unknown settings"):
+    f.write_text("[snyc]\nprotected = []\n")
+    with pytest.raises(ValueError, match=r"unknown settings \['snyc'\].*did you mean 'sync'"):
+        config.load(str(f))
+
+
+@pytest.mark.parametrize("toml, message", [
+    ('[sync]\nprotect = ["/factory"]\n', r"unknown setting \[sync\] protect.*did you mean 'protected'"),
+    ('sync = ["/factory"]\n', r"\[sync\] must be a table"),
+])
+def test_bad_setting_inside_a_section_is_an_error(tmp_path, toml, message):
+    # A silently ignored typo in [sync] would drop protected paths.
+    f = tmp_path / "c.toml"
+    f.write_text(toml)
+    with pytest.raises(ValueError, match=message):
         config.load(str(f))
 
 

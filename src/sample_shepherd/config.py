@@ -9,6 +9,7 @@ Relative paths in the file are read relative to the file's own folder.
 """
 from __future__ import annotations
 
+import difflib
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -81,6 +82,40 @@ def example_config() -> Path:
     return Path(__file__).resolve().parents[2] / "examples" / "sample-shepherd.toml"
 
 
+# Every key the file may hold, per section. [fourier] env is free-form below that.
+SECTIONS = {
+    "device": {"backend", "id"},
+    "elektroid": {"cli"},
+    "fourier": {"command", "env"},
+    "export": {"profile_dirs"},
+    "sync": {"protected"},
+    "transfer": {"bytes_per_second", "seconds_per_call"},
+}
+
+
+def _check_keys(path: Path, data: dict) -> None:
+    """Reject unknown keys, so a typo (say `protect` for `protected`) fails loudly
+    instead of silently falling back to a default."""
+    known = {"work_dir", *SECTIONS}
+    unknown = set(data) - known
+    if unknown:
+        raise ValueError(f"{path}: unknown settings {sorted(unknown)}"
+                         f"{_hint(min(unknown), known)} (known: {sorted(known)})")
+    for name, keys in SECTIONS.items():
+        if name not in data:
+            continue
+        if not isinstance(data[name], dict):
+            raise ValueError(f"{path}: [{name}] must be a table of settings")
+        for key in sorted(set(data[name]) - keys):
+            raise ValueError(f"{path}: unknown setting [{name}] {key}{_hint(key, keys)} "
+                             f"(known in [{name}]: {sorted(keys)})")
+
+
+def _hint(key: str, known: set[str]) -> str:
+    close = difflib.get_close_matches(key, known, n=1)
+    return f"; did you mean '{close[0]}'?" if close else ""
+
+
 def _path(base: Path, value: str) -> Path:
     p = Path(os.path.expandvars(value)).expanduser()
     return p if p.is_absolute() else (base / p)
@@ -93,10 +128,7 @@ def load(explicit: str | None = None) -> Config:
         return cfg
     data = tomllib.loads(path.read_text(encoding="utf-8"))
     base = path.parent
-    known = {"work_dir", "device", "elektroid", "fourier", "export", "sync", "transfer"}
-    unknown = set(data) - known
-    if unknown:
-        raise ValueError(f"{path}: unknown settings {sorted(unknown)} (known: {sorted(known)})")
+    _check_keys(path, data)
     if "work_dir" in data:
         cfg.work_dir = _path(base, data["work_dir"])
     dev = data.get("device", {})
