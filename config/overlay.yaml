@@ -1,0 +1,13 @@
+# Phase 2b: filter as few files as possible. Only the size caps change; the quality gates,
+# duplicate removal and the unrecognised-file rule stay as they were.
+advanced:
+  MAX_PER_FAMILY: 50        # no folder over 50 files
+  FOLDER_TARGET_FILES: 40   # aim for about 40 a folder
+  FOLDER_MIN_FILES: 6       # smaller folders are fine
+  FOLDER_ADAPTIVE: true     # as many folders as needed; a full folder splits, nothing is cut (patch 0004)
+  DIR_CAPS: false           # no per-pack-folder cap
+  VENDOR_MAX_SHARE: 1.0     # no per-vendor share cap
+  BUDGETS: {DRUMLOOPS: 100000, PHRASES: 100000, KICKS: 100000, SNARES: 100000, HATS: 100000,
+            PERC: 100000, SUB: 100000, TOMS: 100000, CLAPS: 100000, CYMBALS: 100000, FX: 100000,
+            SYNTH: 100000, PADS: 100000, STABS: 100000, BLIPS: 100000, VOX: 100000,
+            PIANO: 100000, WAVES: 100000, ACOUSTIC: 100000}

@@ -1,0 +1,480 @@
+From 0ebe9bc5e305641b312734cdd25b020d454a8260 Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Thu, 5 Nov 2026 23:24:53 -0700
+Subject: [PATCH 8/8] Finer groups: foley by its files' names, closed hats by
+ their folder words
+
+A "file" rule reads the words of a file's own name ("WoodSticksOnConcrete22"), and a
+rule's optional fourth element limits it to families holding a word ("foley"). Foley
+folders without a material in their name now group as kitchen, metal, wood, plastic,
+paper, water, body or sci-fi by most of their files; chains split from metal. Closed
+hats split into machine, acoustic, tonal and clicky. A group of one folder now gives
+its folder the next group its files say, rather than "other".
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/fourier/packs/curate_config.py |  25 ++-
+ src/fourier/packs/folder_groups.py |  36 +++--
+ tests/data/tunables_snapshot.json  | 249 ++++++++++++++++++++++++++++-
+ tests/test_folder_groups.py        |  43 ++++-
+ 4 files changed, 340 insertions(+), 13 deletions(-)
+
+diff --git a/src/fourier/packs/curate_config.py b/src/fourier/packs/curate_config.py
+index 00c6e0f..58297b2 100644
+--- a/src/fourier/packs/curate_config.py
++++ b/src/fourier/packs/curate_config.py
+@@ -985,6 +985,10 @@ FOLDER_GROUPS = _tunable("FOLDER_GROUPS", {
+               ("short", "name", ("gated", "tight", "snappy", "clicky", "short"))],
+     "HATS": [("shaker", "tag", ("Shaker",)), ("tambourine", "tag", ("Tambourine",)),
+              ("pedal", "tag", ("Pedal Hihat",)),
++             # closed hats, the long list, by their folder's words
++             ("closed-machine", "name", ("analog", "808", "909", "707", "606", "drum-machine"), "closed"),
++             ("closed-acoustic", "name", ("acoustic",), "closed"),
++             ("closed-tonal", "name", ("tonal",), "closed"), ("closed-clicky", "name", ("clicky",), "closed"),
+              ("closed", "band", ("closed",)), ("open", "band", ("open",))],
+     "CYMBALS": [("ride", "band", ("ride",)), ("crash", "band", ("crash",)),
+                 ("ride", "tag", ("Ride",)), ("crash", "tag", ("Crash", "Splash"))],
+@@ -1028,11 +1032,30 @@ FOLDER_GROUPS = _tunable("FOLDER_GROUPS", {
+             ("synth-voice", "tag", ("Synth Voice",)), ("vocals", "tag", ("Solo Voice",))],
+     # foley folders by the material their name gives, ahead of the foley band (one
+     # "foley" group of 233 folders otherwise); the rest by their sound word
+-    "FX": [("foley-metal", "name", ("foley-chain", "foley-metallic")),
++    "FX": [("foley-chains", "name", ("foley-chain",)), ("foley-metal", "name", ("foley-metallic",)),
+            ("foley-doors-wood", "name", ("foley-door", "foley-wood")),
+            ("foley-glass", "name", ("foley-glass",)), ("foley-paper", "name", ("foley-paper",)),
+            ("foley-footsteps", "name", ("foley-footstep",)),
+            ("foley-mechanical", "name", ("foley-mechanical",)),
++           # the other foley folders by what their files' own names say they are
++           # ("SilverwareInHands46", "WoodSticksOnConcrete22"), a folder going with most of its files
++           ("foley-kitchen", "file", ("silverware", "spoon", "fork", "cutlery", "pot", "pan", "tortilla",
++                                      "cooking", "kitchen", "plate", "cup", "glassware"), "foley"),
++           ("foley-metal", "file", ("metal", "metals", "steel", "aluminum", "chrome", "alloy",
++                                    "can", "screws", "nails", "bearings", "chain", "chains", "coin", "coins",
++                                    "keys", "clank", "windchime", "handcuffs", "weight", "tool", "tools"), "foley"),
++           ("foley-doors-wood", "file", ("wood", "wooden", "sticks", "chair", "door", "drawer"), "foley"),
++           ("foley-plastic", "file", ("plastic", "beads", "balloon", "toy", "bin", "bottle"), "foley"),
++           ("foley-paper", "file", ("paper", "towel", "cloth", "fabric", "tear", "wrinkle", "duct", "tape",
++                                    "cardboard"), "foley"),
++           ("foley-water", "file", ("water", "wet", "sink", "liquid", "liquids", "splash", "drip",
++                                    "droplet", "bubbles"), "foley"),
++           ("foley-body", "file", ("body", "larynx", "beard", "breath", "gore", "scream", "laugh",
++                                   "footstep", "footsteps", "clap"), "foley"),
++           ("foley-scifi", "file", ("alien", "biomech", "clone", "plasma", "robot", "interface", "element",
++                                    "transformation", "terraformed", "extraterrestrial", "relic", "morph",
++                                    "organism", "biological", "thallium", "iridium", "magnesium", "bohrium",
++                                    "scandium", "beryllium", "zirconium", "quasar", "neurotoxin"), "foley"),
+            ("foley-clicks", "name", ("foley-clicky",)), ("foley-tonal", "name", ("foley-tonal",)),
+            ("impacts", "band", ("impact",)), ("risers", "band", ("riser",)),
+            ("downlifters", "band", ("downlifter",)), ("whooshes", "band", ("whoosh",)),
+diff --git a/src/fourier/packs/folder_groups.py b/src/fourier/packs/folder_groups.py
+index 6fce335..18f58cf 100644
+--- a/src/fourier/packs/folder_groups.py
++++ b/src/fourier/packs/folder_groups.py
+@@ -4,7 +4,8 @@ The master stays CATEGORY/family/file. A render to a profile with three folder l
+ each family folder of a large category (more than GROUP_MIN_FOLDERS family folders) under a
+ group folder named for the kind of sound it holds: "closed" and "open" hats, "hand-drums"
+ and "wood" percussion, "risers" and "foley" FX. The groups follow curate_config.FOLDER_GROUPS
+-(Live 12's auto-tags, the files' bands, words of the family name, the family's tempo), read
++(Live 12's auto-tags, the files' bands, words of the family name or of the files' own names,
++the family's tempo), read
+ from the master's manifest, so a render needs no database.
+ """
+ from __future__ import annotations
+@@ -26,8 +27,20 @@ def _family_bpm(family: str) -> float | None:
+     return (int(m.group(1)) + int(m.group(2) or m.group(1))) / 2
+ 
+ 
++def _file_words(entry: dict) -> set[str]:
++    """The words of a file's name: "WoodSticksOnWoodTabletop16.wav" -> wood, sticks, on, tabletop."""
++    stem = (entry.get("out") or "").rpartition("/")[2].rsplit(".", 1)[0]
++    stem = re.sub(r"([a-z])([A-Z])", r"\1 \2", stem)
++    return {w for w in re.split(r"[^a-zA-Z]+", stem.lower()) if w}
++
++
+ def _rule_hit(rule, entry: dict, family: str) -> bool:
+-    _group, what, values = rule
++    _group, what, values, *within = rule
++    # a fourth element limits the rule to families whose name holds that word ("foley")
++    if within and f"-{within[0].lower()}-" not in f"-{family.lower()}-":
++        return False
++    if what == "file":
++        return bool(_file_words(entry) & {v.lower() for v in values})
+     if what == "tag":
+         return bool(set(entry.get("ableton") or ()) & set(values))
+     if what == "band":
+@@ -60,19 +73,24 @@ def category_groups(category: str, families: dict[str, list[dict]], rules=None,
+     if not rules or len(families) <= min_folders:
+         return {}
+     order = {r[0]: i for i, r in reversed(list(enumerate(rules)))}      # first rule's position
+-    out = {}
+-    for fam, entries in sorted(families.items()):
+-        votes = Counter(entry_group(rules, e, fam) for e in entries)
++    def vote(fam, entries, skip=()):
++        live = [r for r in rules if r[0] not in skip]
++        votes = Counter(entry_group(live, e, fam) for e in entries)
+         votes.pop(None, None)
+         if not votes or sum(votes.values()) * 2 < len(entries):
+             # most files meet no rule: the family's name may still say (a "name" rule)
+-            out[fam] = entry_group(rules, {}, fam) or fallback
+-            continue
+-        out[fam] = max(votes, key=lambda g: (votes[g], -order.get(g, 1 << 30)))
++            return entry_group(live, {}, fam) or fallback
++        return max(votes, key=lambda g: (votes[g], -order.get(g, 1 << 30)))
++
++    out = {fam: vote(fam, entries) for fam, entries in sorted(families.items())}
+     sizes = Counter(out.values())
+     lone = [g for g, n in sizes.items() if n == 1 and g != fallback]
+     if len(lone) >= 2:
+-        out = {f: (fallback if g in lone else g) for f, g in out.items()}
++        # a group of one folder is no group: its folder takes the next group its files say
++        out = {f: (vote(f, families[f], set(lone)) if g in lone else g) for f, g in out.items()}
++        sizes = Counter(out.values())
++        lone2 = {g for g, n in sizes.items() if n == 1 and g != fallback}
++        out = {f: (fallback if g in lone2 else g) for f, g in out.items()}
+     if len(set(out.values())) <= 1:
+         return {}
+     return out
+diff --git a/tests/data/tunables_snapshot.json b/tests/data/tunables_snapshot.json
+index 0565210..caf9ebf 100644
+--- a/tests/data/tunables_snapshot.json
++++ b/tests/data/tunables_snapshot.json
+@@ -9003,6 +9003,59 @@
+         }
+        ]
+       },
++      {
++       "$tuple": [
++        "closed-machine",
++        "name",
++        {
++         "$tuple": [
++          "analog",
++          "808",
++          "909",
++          "707",
++          "606",
++          "drum-machine"
++         ]
++        },
++        "closed"
++       ]
++      },
++      {
++       "$tuple": [
++        "closed-acoustic",
++        "name",
++        {
++         "$tuple": [
++          "acoustic"
++         ]
++        },
++        "closed"
++       ]
++      },
++      {
++       "$tuple": [
++        "closed-tonal",
++        "name",
++        {
++         "$tuple": [
++          "tonal"
++         ]
++        },
++        "closed"
++       ]
++      },
++      {
++       "$tuple": [
++        "closed-clicky",
++        "name",
++        {
++         "$tuple": [
++          "clicky"
++         ]
++        },
++        "closed"
++       ]
++      },
+       {
+        "$tuple": [
+         "closed",
+@@ -9883,13 +9936,23 @@
+     [
+      "FX",
+      [
++      {
++       "$tuple": [
++        "foley-chains",
++        "name",
++        {
++         "$tuple": [
++          "foley-chain"
++         ]
++        }
++       ]
++      },
+       {
+        "$tuple": [
+         "foley-metal",
+         "name",
+         {
+          "$tuple": [
+-          "foley-chain",
+           "foley-metallic"
+          ]
+         }
+@@ -9951,6 +10014,190 @@
+         }
+        ]
+       },
++      {
++       "$tuple": [
++        "foley-kitchen",
++        "file",
++        {
++         "$tuple": [
++          "silverware",
++          "spoon",
++          "fork",
++          "cutlery",
++          "pot",
++          "pan",
++          "tortilla",
++          "cooking",
++          "kitchen",
++          "plate",
++          "cup",
++          "glassware"
++         ]
++        },
++        "foley"
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-metal",
++        "file",
++        {
++         "$tuple": [
++          "metal",
++          "metals",
++          "steel",
++          "aluminum",
++          "chrome",
++          "alloy",
++          "can",
++          "screws",
++          "nails",
++          "bearings",
++          "chain",
++          "chains",
++          "coin",
++          "coins",
++          "keys",
++          "clank",
++          "windchime",
++          "handcuffs",
++          "weight",
++          "tool",
++          "tools"
++         ]
++        },
++        "foley"
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-doors-wood",
++        "file",
++        {
++         "$tuple": [
++          "wood",
++          "wooden",
++          "sticks",
++          "chair",
++          "door",
++          "drawer"
++         ]
++        },
++        "foley"
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-plastic",
++        "file",
++        {
++         "$tuple": [
++          "plastic",
++          "beads",
++          "balloon",
++          "toy",
++          "bin",
++          "bottle"
++         ]
++        },
++        "foley"
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-paper",
++        "file",
++        {
++         "$tuple": [
++          "paper",
++          "towel",
++          "cloth",
++          "fabric",
++          "tear",
++          "wrinkle",
++          "duct",
++          "tape",
++          "cardboard"
++         ]
++        },
++        "foley"
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-water",
++        "file",
++        {
++         "$tuple": [
++          "water",
++          "wet",
++          "sink",
++          "liquid",
++          "liquids",
++          "splash",
++          "drip",
++          "droplet",
++          "bubbles"
++         ]
++        },
++        "foley"
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-body",
++        "file",
++        {
++         "$tuple": [
++          "body",
++          "larynx",
++          "beard",
++          "breath",
++          "gore",
++          "scream",
++          "laugh",
++          "footstep",
++          "footsteps",
++          "clap"
++         ]
++        },
++        "foley"
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-scifi",
++        "file",
++        {
++         "$tuple": [
++          "alien",
++          "biomech",
++          "clone",
++          "plasma",
++          "robot",
++          "interface",
++          "element",
++          "transformation",
++          "terraformed",
++          "extraterrestrial",
++          "relic",
++          "morph",
++          "organism",
++          "biological",
++          "thallium",
++          "iridium",
++          "magnesium",
++          "bohrium",
++          "scandium",
++          "beryllium",
++          "zirconium",
++          "quasar",
++          "neurotoxin"
++         ]
++        },
++        "foley"
++       ]
++      },
+       {
+        "$tuple": [
+         "foley-clicks",
+diff --git a/tests/test_folder_groups.py b/tests/test_folder_groups.py
+index 03ddbfe..86b58cd 100644
+--- a/tests/test_folder_groups.py
++++ b/tests/test_folder_groups.py
+@@ -80,15 +80,54 @@ def test_a_one_tempo_family_name_reads_as_its_tempo():
+ def test_foley_folders_group_by_the_material_their_name_gives():
+     from fourier.packs.curate_config import FOLDER_GROUPS
+     rules = FOLDER_GROUPS["FX"]
+-    fams = _fams({"foley-chain-rattle-clicky": (5, "foley", []), "foley-metallic-scrape-tonal": (5, "foley", []),
++    fams = _fams({"foley-chain-rattle-clicky": (5, "foley", []), "foley-chain-rattle-soft": (5, "foley", []),
++                  "foley-metallic-scrape-tonal": (5, "foley", []), "foley-metallic-scrape-soft": (5, "foley", []),
+                   "foley-door-slam-soft": (5, "foley", []), "foley-wood-crack-tonal": (5, "foley", []),
+                   "foley-clicky-12": (5, "foley", []), "foley-clicky-gated": (5, "foley", []),
+                   "foley-dark-soft": (5, "foley", []), "foley-gritty-tonal": (5, "foley", []),
+                   "riser-long": (5, "riser", []), "riser-short": (5, "riser", [])})
+     got = G.category_groups("FX", fams, rules=rules, min_folders=2)
+-    assert got["foley-chain-rattle-clicky"] == got["foley-metallic-scrape-tonal"] == "foley-metal"
++    assert got["foley-chain-rattle-clicky"] == "foley-chains"
++    assert got["foley-metallic-scrape-tonal"] == "foley-metal"
+     assert got["foley-door-slam-soft"] == got["foley-wood-crack-tonal"] == "foley-doors-wood"
+     assert got["foley-clicky-12"] == got["foley-clicky-gated"] == "foley-clicks"
+     # no material and not a clicky / tonal run: still plain foley
+     assert got["foley-dark-soft"] == got["foley-gritty-tonal"] == "foley"
+     assert got["riser-long"] == "risers"
++
++
++def test_a_file_rule_reads_the_files_own_names_within_its_families():
++    rules = [("kitchen", "file", ("silverware",), "foley"), ("wood", "file", ("wood",), "foley"),
++             ("clicks", "name", ("foley-clicky",)), ("impacts", "band", ("impact",))]
++    fams = {"foley-clicky-2": [dict(out=f"foley-clicky-2/SilverwareInHands{i}.wav") for i in range(4)]
++                              + [dict(out="foley-clicky-2/WoodSticks1.wav")],
++            "foley-clicky-3": [dict(out=f"foley-clicky-3/WoodSticksOnConcrete{i}.wav") for i in range(3)],
++            "foley-clicky-4": [dict(out=f"foley-clicky-4/Sample_{i}.wav") for i in range(3)],
++            "foley-clicky-5": [dict(out=f"foley-clicky-5/Sample_{i}.wav") for i in range(3)],
++            # the same words outside a foley folder don't count
++            "impact-hit": [dict(out=f"impact-hit/WoodImpact{i}.wav", band="impact") for i in range(3)],
++            "impact-boom": [dict(out=f"impact-boom/Boom{i}.wav", band="impact") for i in range(3)]}
++    got = G.category_groups("FX", fams, rules=rules, min_folders=2, fallback="other")
++    # kitchen and wood have one folder each: no group of one, so the next group the files say
++    assert got["foley-clicky-2"] == got["foley-clicky-3"] == got["foley-clicky-4"] == "clicks"
++    assert got["impact-hit"] == got["impact-boom"] == "impacts"
++    rules2 = rules + []
++    fams["foley-clicky-6"] = [dict(out=f"foley-clicky-6/Silverware{i}.wav") for i in range(3)]
++    fams["foley-clicky-7"] = [dict(out=f"foley-clicky-7/WoodChair{i}.wav") for i in range(3)]
++    got = G.category_groups("FX", fams, rules=rules2, min_folders=2, fallback="other")
++    assert got["foley-clicky-2"] == got["foley-clicky-6"] == "kitchen"
++    assert got["foley-clicky-3"] == got["foley-clicky-7"] == "wood"
++
++
++def test_closed_hats_split_by_their_folder_words():
++    from fourier.packs.curate_config import FOLDER_GROUPS
++    fams = _fams({"closed-analog-clicky": (5, "closed", []), "closed-analog-tonal": (5, "closed", []),
++                  "closed-dark-tonal": (5, "closed", []), "closed-tonal-2": (5, "closed", []),
++                  "closed-clicky-3": (5, "closed", []), "closed-clicky-4": (5, "closed", []),
++                  "closed-gated": (5, "closed", []), "open-analog-clicky": (5, "open", []),
++                  "open-tonal": (5, "open", [])})
++    got = G.category_groups("HATS", fams, rules=FOLDER_GROUPS["HATS"], min_folders=2)
++    assert got["closed-analog-clicky"] == got["closed-analog-tonal"] == "closed-machine"
++    assert got["closed-dark-tonal"] == got["closed-tonal-2"] == "closed-tonal"
++    assert got["closed-clicky-3"] == got["closed-clicky-4"] == "closed-clicky"
++    assert got["closed-gated"] == "closed" and got["open-analog-clicky"] == got["open-tonal"] == "open"
+-- 
+2.55.0
+

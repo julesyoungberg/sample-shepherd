@@ -1,0 +1,69 @@
+From f42efc81d6d2ab0efe359362a75b93d74cc549a3 Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Mon, 26 Oct 2026 19:52:51 -0700
+Subject: [PATCH 2/8] Let a vendor's SD_ prefix through the KICKS name filter
+
+KICKS's noise pattern dropped every name opening with "sd_" before
+selection, so "SD_Falcon_Kick" never reached the kick pool even once
+routing named it a kick. "SD_" before a word now passes; "SD_01",
+"SD 3" and "sd-..." are still kept out.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/fourier/packs/curate_config.py |  3 ++-
+ tests/data/tunables_snapshot.json  |  2 +-
+ tests/test_routing_signals.py      | 11 +++++++++++
+ 3 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/src/fourier/packs/curate_config.py b/src/fourier/packs/curate_config.py
+index f354ec3..f97f50b 100644
+--- a/src/fourier/packs/curate_config.py
++++ b/src/fourier/packs/curate_config.py
+@@ -595,7 +595,8 @@ DRUMLOOP_BREAK_MIN = _tunable("DRUMLOOP_BREAK_MIN", 0.30)
+ DRUMLOOP_HAR_MAX = _tunable("DRUMLOOP_HAR_MAX", 0.68)
+ CATEGORIES = _tunable("CATEGORIES", _tax.with_taxonomy({   # kind and labels: config/taxonomy.yaml
+     "KICKS":  dict(phrases=KICK_PHRASES,
+-                   noise=r"(^sd[ _-]|snare|snr|clap|\bhat\b|^(?:lt|mt|ht)[._ -]|\btoms?\b|low tune)"),
++                   # "SD_" before a word is a vendor's prefix ("SD_Falcon_Kick"), not a snare
++                   noise=r"(^sd(?:[ -]|_(?![a-z]))|snare|snr|clap|\bhat\b|^(?:lt|mt|ht)[._ -]|\btoms?\b|low tune)"),
+     "SNARES": dict(phrases=SNARE_PHRASES,
+                    noise=r"(^bd[ _-]|kick|\bhat\b|hi.?hat|cymbal|\bride\b|^oh[ _]|^ch[ _])"),
+     "HATS":   dict(phrases=HAT_PHRASES, band="hat",
+diff --git a/tests/data/tunables_snapshot.json b/tests/data/tunables_snapshot.json
+index ebe18ea..8a4efcc 100644
+--- a/tests/data/tunables_snapshot.json
++++ b/tests/data/tunables_snapshot.json
+@@ -1328,7 +1328,7 @@
+        ],
+        [
+         "noise",
+-        "(^sd[ _-]|snare|snr|clap|\\bhat\\b|^(?:lt|mt|ht)[._ -]|\\btoms?\\b|low tune)"
++        "(^sd(?:[ -]|_(?![a-z]))|snare|snr|clap|\\bhat\\b|^(?:lt|mt|ht)[._ -]|\\btoms?\\b|low tune)"
+        ],
+        [
+         "trim_lead_db",
+diff --git a/tests/test_routing_signals.py b/tests/test_routing_signals.py
+index 408fda6..7e75a89 100644
+--- a/tests/test_routing_signals.py
++++ b/tests/test_routing_signals.py
+@@ -64,6 +64,17 @@ def test_a_vendors_sd_prefix_yields_to_the_folder_that_names_the_drum(rel, want)
+     assert C._drum_named_in(rel.rsplit("/", 1)[-1], rel) == want, rel
+ 
+ 
++@pytest.mark.parametrize("name, noise", [
++    ("SD_Falcon_Kick.wav", False),
++    ("SD_LINDRUM_Kick_1.wav", False),
++    ("SD_01.wav", True),
++    ("SD 3.wav", True),
++    ("sd-Qzv.wav", True),
++])
++def test_kicks_name_filter_lets_a_vendors_sd_prefix_through(name, noise):
++    assert bool(re.search(CATEGORIES["KICKS"]["noise"], name, re.I)) is noise, name
++
++
+ # --- "Oh" and a voice folder ---------------------------------------------------------------
+ 
+ def test_oh_is_a_word_unless_written_as_the_abbreviation():
+-- 
+2.55.0
+

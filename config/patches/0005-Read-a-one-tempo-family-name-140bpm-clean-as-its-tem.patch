@@ -1,0 +1,53 @@
+From 411d22642b1def7438dc7d69f18a2f5f77061721 Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Tue, 3 Nov 2026 22:28:15 -0700
+Subject: [PATCH 5/8] Read a one-tempo family name ("140bpm-clean") as its
+ tempo for groups
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/fourier/packs/folder_groups.py | 9 ++++++---
+ tests/test_folder_groups.py        | 6 ++++++
+ 2 files changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/src/fourier/packs/folder_groups.py b/src/fourier/packs/folder_groups.py
+index 463c0fa..6fce335 100644
+--- a/src/fourier/packs/folder_groups.py
++++ b/src/fourier/packs/folder_groups.py
+@@ -14,13 +14,16 @@ import re
+ from collections import Counter
+ from pathlib import Path
+ 
+-_BPM = re.compile(r"^(\d{2,3})-(\d{2,3})bpm(?:-|$)")
++_BPM = re.compile(r"^(\d{2,3})(?:-(\d{2,3}))?bpm(?:-|$)")
+ 
+ 
+ def _family_bpm(family: str) -> float | None:
+-    """The middle of a family's tempo range, from its name ("130-135bpm-gritty": 132.5)."""
++    """The middle of a family's tempo range, from its name ("130-135bpm-gritty": 132.5,
++    "140bpm-clean": 140)."""
+     m = _BPM.match(family)
+-    return (int(m.group(1)) + int(m.group(2))) / 2 if m else None
++    if not m:
++        return None
++    return (int(m.group(1)) + int(m.group(2) or m.group(1))) / 2
+ 
+ 
+ def _rule_hit(rule, entry: dict, family: str) -> bool:
+diff --git a/tests/test_folder_groups.py b/tests/test_folder_groups.py
+index 00a6f90..7498af0 100644
+--- a/tests/test_folder_groups.py
++++ b/tests/test_folder_groups.py
+@@ -69,3 +69,9 @@ def test_identical_files_split_into_even_runs():
+     P = np.zeros((120, 3))
+     out = C._split_oversize([list(range(120))], P, ceil=50, target=40, min_n=6)
+     assert sorted(i for g in out for i in g) == list(range(120)) and max(map(len, out)) <= 50
++
++
++def test_a_one_tempo_family_name_reads_as_its_tempo():
++    assert G._family_bpm("130-135bpm-gritty") == 132.5
++    assert G._family_bpm("140bpm-clean") == 140 and G._family_bpm("168bpm") == 168
++    assert G._family_bpm("tops-open-hat") is None
+-- 
+2.55.0
+

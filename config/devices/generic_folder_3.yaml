@@ -1,0 +1,7 @@
+# A folder for Ableton Live / XO with three folder levels: CATEGORY/group/family.
+# Everything else (44.1 kHz / 24-bit WAV) comes from the package's generic_folder.
+id: generic_folder_3
+extends: generic_folder
+name: Generic folder, three levels
+paths:
+  folder_depth: {value: 3, status: convention}        # user's choice (Fourier patch 0004)

@@ -1,0 +1,57 @@
+From 043e14aee24435ac283541fed73e6553d2f58706 Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Mon, 26 Oct 2026 19:56:31 -0700
+Subject: [PATCH 3/8] Let the folder overrule a vendor's SD_ name only when the
+ name names no drum
+
+"Cymbals & Percussion/SD_LINDRUM_Clap" went to CYMBALS by its folder.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/fourier/packs/rules.py    | 9 +++++----
+ tests/test_routing_signals.py | 2 ++
+ 2 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/src/fourier/packs/rules.py b/src/fourier/packs/rules.py
+index 1cbff20..34b3ed5 100644
+--- a/src/fourier/packs/rules.py
++++ b/src/fourier/packs/rules.py
+@@ -610,9 +610,9 @@ def _not_drum_votes(canon, ab_tags) -> bool:
+ 
+ def _drum_named_in(name, rel=None, fallback=False, canon=None, ab_tags=None):
+     """_drum_named, read with the file's folder and, given them, its classifier labels and
+-    Live's tags (DRUM_NAME_FROM's notes): a pack's prefix ("sd_qz030", a vendor's
+-    "SD_OberHat_Open") yields to a folder that names a drum; a drum named only by an
+-    abbreviation in a folder named for voices
++    Live's tags (DRUM_NAME_FROM's notes): a pack's prefix ("sd_qz030", or a vendor's
++    "SD_OberHat_Open" whose rest names no drum) yields to a folder that names a drum; a drum
++    named only by an abbreviation in a folder named for voices
+     (DRUM_ABBR_NOT_FOLDER_RE) is none; a drum word beside a tonal sound's word
+     (DRUM_NAME_TONAL_RE) is none when the name carries a note, or when both classifiers speak
+     and neither says drum. Without Sononym (fallback) a shaker or tambourine (HATS by its
+@@ -625,7 +625,8 @@ def _drum_named_in(name, rel=None, fallback=False, canon=None, ab_tags=None):
+     base = os.path.splitext(os.path.basename(name or ""))[0]
+     stem = base.replace("_", " ")
+     folder = shape_scope(rel)[1] if rel else ""
+-    if folder and (_DRUM_PREFIX_RE.match(base) or _SD_VENDOR_RE.match(base)):
++    sd = _SD_VENDOR_RE.match(base)
++    if folder and (_DRUM_PREFIX_RE.match(base) or (sd and not _drum_named(base[sd.end():]))):
+         fd = _drum_named(folder) or _drum_named_first(folder, canon, ab_tags)
+         if fd:
+             return fd
+diff --git a/tests/test_routing_signals.py b/tests/test_routing_signals.py
+index 7e75a89..86b55e9 100644
+--- a/tests/test_routing_signals.py
++++ b/tests/test_routing_signals.py
+@@ -59,6 +59,8 @@ def test_a_vendors_sd_prefix_yields_to_the_drum_the_rest_names(name, want):
+     ("Acme/Pack/Hi Hats/SD_OberHat_Open.wav", "HATS"),
+     ("Acme/Pack/Kicks/SD_Falcon_Kick.wav", "KICKS"),
+     ("Acme/Pack/Vqx/SD_Qzv.wav", "SNARES"),
++    # the rest of the name names the drum: the folder doesn't overrule it
++    ("Acme/Pack/Cymbals & Percussion/SD_Vqx_Clap.wav", "CLAPS"),
+ ])
+ def test_a_vendors_sd_prefix_yields_to_the_folder_that_names_the_drum(rel, want):
+     assert C._drum_named_in(rel.rsplit("/", 1)[-1], rel) == want, rel
+-- 
+2.55.0
+

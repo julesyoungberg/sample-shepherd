@@ -1,0 +1,110 @@
+From fc8757260baf2a4b4079d9db4ee7f67d8ce7f05d Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Mon, 26 Oct 2026 19:45:06 -0700
+Subject: [PATCH 1/8] Read a vendor's SD_ name prefix as a prefix, not snare
+ drum
+
+"SD_Falcon_Kick" named both a kick and a snare, so no category took it.
+An SD_ followed by a word now yields to the drum the rest of the name
+names, and to a folder that names a drum. SD_01, SD 3 and 909 SD still
+mean snare.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/fourier/packs/rules.py    | 19 ++++++++++++++-----
+ tests/test_routing_signals.py | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+), 5 deletions(-)
+
+diff --git a/src/fourier/packs/rules.py b/src/fourier/packs/rules.py
+index 459232b..1cbff20 100644
+--- a/src/fourier/packs/rules.py
++++ b/src/fourier/packs/rules.py
+@@ -455,8 +455,13 @@ def _scratch_named(name, rel_path=None):
+ 
+ def _drum_named(name):
+     """The drum category a filename names, when it names exactly one kind (DRUM_NAME_RULES);
+-    None for no drum word or two kinds ("Kick Snare")."""
+-    stem = os.path.splitext(os.path.basename(name or ""))[0].replace("_", " ")
++    None for no drum word or two kinds ("Kick Snare"). A vendor's "SD_" opening a name
++    before a word ("SD_Falcon_Kick", _SD_VENDOR_RE) yields to the drum the rest names."""
++    base = os.path.splitext(os.path.basename(name or ""))[0]
++    m = _SD_VENDOR_RE.match(base)
++    if m and (rest := _drum_named(base[m.end():])):
++        return rest
++    stem = base.replace("_", " ")
+     hits = {cat for rx, cat in DRUM_NAME_RULES if rx.search(stem)}
+     if hits == {"HATS", "CYMBALS"}:
+         return "HATS" if re.search(r"hi-?hat|hihat|(?<![a-z])hat(?![a-z])|(?<![a-z])(?:hh|ch)" + _ABBR_END
+@@ -586,6 +591,9 @@ _PERC_FOLDER_RE = re.compile(r"(?<![a-z])(?:percs?|percussions?)(?![a-z])", re.I
+ # a two-letter drum abbreviation, "_" and a letters+digits code opening a name: a pack's prefix
+ # ("sd_qz030"), and the abbreviations alone (what a name says with them blanked out)
+ _DRUM_PREFIX_RE = re.compile(r"^(?:bds?|sd|hh|ch|oh|cy)_[a-z]+\d+(?![a-z])", re.I)
++# "SD_" and a word opening a name: a vendor's prefix ("SD_Falcon_Kick", "SD_DMX_Tom_1"),
++# not "snare drum", which is "SD_01", "SD 3" or "909 SD"
++_SD_VENDOR_RE = re.compile(r"^sd_(?=[a-z])", re.I)
+ _DRUM_ABBR_RE = re.compile(r"(?<![a-z+])(?:bds?|sd|snrs?|hh|ch|oh|cy)" + _ABBR_END, re.I)
+ 
+ 
+@@ -602,8 +610,9 @@ def _not_drum_votes(canon, ab_tags) -> bool:
+ 
+ def _drum_named_in(name, rel=None, fallback=False, canon=None, ab_tags=None):
+     """_drum_named, read with the file's folder and, given them, its classifier labels and
+-    Live's tags (DRUM_NAME_FROM's notes): a pack's prefix ("sd_qz030") yields to a folder
+-    that names a drum; a drum named only by an abbreviation in a folder named for voices
++    Live's tags (DRUM_NAME_FROM's notes): a pack's prefix ("sd_qz030", a vendor's
++    "SD_OberHat_Open") yields to a folder that names a drum; a drum named only by an
++    abbreviation in a folder named for voices
+     (DRUM_ABBR_NOT_FOLDER_RE) is none; a drum word beside a tonal sound's word
+     (DRUM_NAME_TONAL_RE) is none when the name carries a note, or when both classifiers speak
+     and neither says drum. Without Sononym (fallback) a shaker or tambourine (HATS by its
+@@ -616,7 +625,7 @@ def _drum_named_in(name, rel=None, fallback=False, canon=None, ab_tags=None):
+     base = os.path.splitext(os.path.basename(name or ""))[0]
+     stem = base.replace("_", " ")
+     folder = shape_scope(rel)[1] if rel else ""
+-    if folder and _DRUM_PREFIX_RE.match(base):
++    if folder and (_DRUM_PREFIX_RE.match(base) or _SD_VENDOR_RE.match(base)):
+         fd = _drum_named(folder) or _drum_named_first(folder, canon, ab_tags)
+         if fd:
+             return fd
+diff --git a/tests/test_routing_signals.py b/tests/test_routing_signals.py
+index b4f582f..408fda6 100644
+--- a/tests/test_routing_signals.py
++++ b/tests/test_routing_signals.py
+@@ -36,6 +36,34 @@ def test_a_pack_prefix_yields_to_the_folder_that_names_the_drum(rel, want):
+     assert C._drum_named_in(fn, rel) == want, rel
+ 
+ 
++@pytest.mark.parametrize("name, want", [
++    ("SD_Falcon_Kick.wav", "KICKS"),
++    ("SD_Kick_Alauda.wav", "KICKS"),
++    ("SD_DMX_Tom_1.wav", "TOMS"),
++    ("SD_DMX_Hi_Hat_Open.wav", "HATS"),
++    ("SD_Dusty_Clap.wav", "CLAPS"),
++    ("SD_DMX_Snare.wav", "SNARES"),
++    # nothing after the prefix names a drum: "SD" still does
++    ("SD_Qzv.wav", "SNARES"),
++    # not a vendor's prefix: digits, a space or a trailing "SD" mean snare drum
++    ("SD_01.wav", "SNARES"),
++    ("SD Qzv 3.wav", "SNARES"),
++    ("909 SD.wav", "SNARES"),
++    ("Kick SD.wav", None),
++])
++def test_a_vendors_sd_prefix_yields_to_the_drum_the_rest_names(name, want):
++    assert C._drum_named(name) == want, name
++
++
++@pytest.mark.parametrize("rel, want", [
++    ("Acme/Pack/Hi Hats/SD_OberHat_Open.wav", "HATS"),
++    ("Acme/Pack/Kicks/SD_Falcon_Kick.wav", "KICKS"),
++    ("Acme/Pack/Vqx/SD_Qzv.wav", "SNARES"),
++])
++def test_a_vendors_sd_prefix_yields_to_the_folder_that_names_the_drum(rel, want):
++    assert C._drum_named_in(rel.rsplit("/", 1)[-1], rel) == want, rel
++
++
+ # --- "Oh" and a voice folder ---------------------------------------------------------------
+ 
+ def test_oh_is_a_word_unless_written_as_the_abbreviation():
+-- 
+2.55.0
+

@@ -1,0 +1,7 @@
+# Digitakt II with at most 50 files per folder (browsing comfort on the device).
+# Everything else (48 kHz / 16-bit, depth 2, citations) comes from the package's digitakt_2.
+id: digitakt_2_50
+extends: digitakt_2
+name: Elektron Digitakt 2 (50 files a folder)
+paths:
+  files_per_folder: {value: 50, status: convention}   # user's choice; no documented device cap

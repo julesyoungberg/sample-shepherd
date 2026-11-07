@@ -1,0 +1,166 @@
+From 34f3fa405c300093de554bec0e38c607908c3bf2 Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Wed, 4 Nov 2026 23:03:09 -0700
+Subject: [PATCH 6/8] Group FX foley folders by the material their name gives
+
+One "foley" group held 233 folders. Name rules ahead of the foley band put them
+under foley-metal, foley-doors-wood, foley-glass, foley-paper, foley-footsteps,
+foley-mechanical, foley-clicks and foley-tonal; the rest stay "foley".
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/fourier/packs/curate_config.py | 10 +++-
+ tests/data/tunables_snapshot.json  | 90 ++++++++++++++++++++++++++++++
+ tests/test_folder_groups.py        | 17 ++++++
+ 3 files changed, 116 insertions(+), 1 deletion(-)
+
+diff --git a/src/fourier/packs/curate_config.py b/src/fourier/packs/curate_config.py
+index 5438b30..00c6e0f 100644
+--- a/src/fourier/packs/curate_config.py
++++ b/src/fourier/packs/curate_config.py
+@@ -1026,7 +1026,15 @@ FOLDER_GROUPS = _tunable("FOLDER_GROUPS", {
+             ("ad-libs", "name", ("ad-lib", "adlib")),
+             ("speech", "tag", ("Speech",)), ("choir", "tag", ("Choir",)),
+             ("synth-voice", "tag", ("Synth Voice",)), ("vocals", "tag", ("Solo Voice",))],
+-    "FX": [("impacts", "band", ("impact",)), ("risers", "band", ("riser",)),
++    # foley folders by the material their name gives, ahead of the foley band (one
++    # "foley" group of 233 folders otherwise); the rest by their sound word
++    "FX": [("foley-metal", "name", ("foley-chain", "foley-metallic")),
++           ("foley-doors-wood", "name", ("foley-door", "foley-wood")),
++           ("foley-glass", "name", ("foley-glass",)), ("foley-paper", "name", ("foley-paper",)),
++           ("foley-footsteps", "name", ("foley-footstep",)),
++           ("foley-mechanical", "name", ("foley-mechanical",)),
++           ("foley-clicks", "name", ("foley-clicky",)), ("foley-tonal", "name", ("foley-tonal",)),
++           ("impacts", "band", ("impact",)), ("risers", "band", ("riser",)),
+            ("downlifters", "band", ("downlifter",)), ("whooshes", "band", ("whoosh",)),
+            ("sweeps", "band", ("sweep",)), ("noise", "band", ("noise",)),
+            ("ambience", "band", ("ambience",)), ("foley", "band", ("foley",)),
+diff --git a/tests/data/tunables_snapshot.json b/tests/data/tunables_snapshot.json
+index d9f3050..0565210 100644
+--- a/tests/data/tunables_snapshot.json
++++ b/tests/data/tunables_snapshot.json
+@@ -9883,6 +9883,96 @@
+     [
+      "FX",
+      [
++      {
++       "$tuple": [
++        "foley-metal",
++        "name",
++        {
++         "$tuple": [
++          "foley-chain",
++          "foley-metallic"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-doors-wood",
++        "name",
++        {
++         "$tuple": [
++          "foley-door",
++          "foley-wood"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-glass",
++        "name",
++        {
++         "$tuple": [
++          "foley-glass"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-paper",
++        "name",
++        {
++         "$tuple": [
++          "foley-paper"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-footsteps",
++        "name",
++        {
++         "$tuple": [
++          "foley-footstep"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-mechanical",
++        "name",
++        {
++         "$tuple": [
++          "foley-mechanical"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-clicks",
++        "name",
++        {
++         "$tuple": [
++          "foley-clicky"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley-tonal",
++        "name",
++        {
++         "$tuple": [
++          "foley-tonal"
++         ]
++        }
++       ]
++      },
+       {
+        "$tuple": [
+         "impacts",
+diff --git a/tests/test_folder_groups.py b/tests/test_folder_groups.py
+index 7498af0..03ddbfe 100644
+--- a/tests/test_folder_groups.py
++++ b/tests/test_folder_groups.py
+@@ -75,3 +75,20 @@ def test_a_one_tempo_family_name_reads_as_its_tempo():
+     assert G._family_bpm("130-135bpm-gritty") == 132.5
+     assert G._family_bpm("140bpm-clean") == 140 and G._family_bpm("168bpm") == 168
+     assert G._family_bpm("tops-open-hat") is None
++
++
++def test_foley_folders_group_by_the_material_their_name_gives():
++    from fourier.packs.curate_config import FOLDER_GROUPS
++    rules = FOLDER_GROUPS["FX"]
++    fams = _fams({"foley-chain-rattle-clicky": (5, "foley", []), "foley-metallic-scrape-tonal": (5, "foley", []),
++                  "foley-door-slam-soft": (5, "foley", []), "foley-wood-crack-tonal": (5, "foley", []),
++                  "foley-clicky-12": (5, "foley", []), "foley-clicky-gated": (5, "foley", []),
++                  "foley-dark-soft": (5, "foley", []), "foley-gritty-tonal": (5, "foley", []),
++                  "riser-long": (5, "riser", []), "riser-short": (5, "riser", [])})
++    got = G.category_groups("FX", fams, rules=rules, min_folders=2)
++    assert got["foley-chain-rattle-clicky"] == got["foley-metallic-scrape-tonal"] == "foley-metal"
++    assert got["foley-door-slam-soft"] == got["foley-wood-crack-tonal"] == "foley-doors-wood"
++    assert got["foley-clicky-12"] == got["foley-clicky-gated"] == "foley-clicks"
++    # no material and not a clicky / tonal run: still plain foley
++    assert got["foley-dark-soft"] == got["foley-gritty-tonal"] == "foley"
++    assert got["riser-long"] == "risers"
+-- 
+2.55.0
+

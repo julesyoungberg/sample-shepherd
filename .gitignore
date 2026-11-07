@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+# audio and build outputs never go in this repo
+*.wav
+*.mp3
+*.aif
+*.aiff
+*.flac

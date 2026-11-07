@@ -1,0 +1,1892 @@
+From 8962ce9ce4a28db12561298634780ba021d23400 Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Tue, 3 Nov 2026 21:50:01 -0700
+Subject: [PATCH 4/8] Adaptive folder counts, and a third folder level for
+ renders
+
+FOLDER_ADAPTIVE gives a category as many folders as its files need and
+splits a folder over MAX_PER_FAMILY instead of leaving files out.
+DIR_CAPS turns the per-category dir_cap off. A profile with
+folder_depth 3 renders CATEGORY/group/family, the groups read from Live's
+auto-tags, bands and family names (FOLDER_GROUPS).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ config/tunables.yaml               |    5 +
+ src/fourier/packs/curate.py        |   53 +-
+ src/fourier/packs/curate_config.py |   90 ++
+ src/fourier/packs/folder_groups.py |   89 ++
+ src/fourier/packs/releases.py      |    2 +-
+ src/fourier/packs/render.py        |   26 +-
+ src/fourier/packs/verify.py        |   11 +-
+ tests/data/tunables_snapshot.json  | 1358 +++++++++++++++++++++++++++-
+ tests/test_folder_groups.py        |   71 ++
+ 9 files changed, 1690 insertions(+), 15 deletions(-)
+ create mode 100644 src/fourier/packs/folder_groups.py
+ create mode 100644 tests/test_folder_groups.py
+
+diff --git a/config/tunables.yaml b/config/tunables.yaml
+index ed834a2..7e8eb3e 100644
+--- a/config/tunables.yaml
++++ b/config/tunables.yaml
+@@ -197,6 +197,11 @@ curate_config:
+   FOLDER_MAX: knob:size
+   FOLDER_TARGET_FILES: knob:size
+   FOLDER_MIN: knob:size
++  FOLDER_ADAPTIVE: engine
++  DIR_CAPS: engine
++  GROUP_MIN_FOLDERS: engine
++  GROUP_FALLBACK: engine
++  FOLDER_GROUPS: rules
+   NAME_TOPK: taste
+   NAME_SUPPORT_MIN: taste
+   NAME_SUPPORT_FULL: taste
+diff --git a/src/fourier/packs/curate.py b/src/fourier/packs/curate.py
+index cfebde3..888781d 100644
+--- a/src/fourier/packs/curate.py
++++ b/src/fourier/packs/curate.py
+@@ -79,6 +79,7 @@ from .naming import (  # noqa: F401  (re-exported: tests and callers use the cur
+     naming_dims, name_families,
+ )
+ from .curate_config import CATEGORIES, NAMEABLE_EXTRA, INSTRUMENT_PACKS, INSTRUMENT_CAP
++from .curate_config import FOLDER_ADAPTIVE, DIR_CAPS
+ from .curate_config import (FOLDER_TARGET_FILES, FOLDER_MIN, NAME_TOPK, NAME_SUPPORT_MIN,
+                             GENRE_SUPPORT_MIN, GENRE_WORDS, INSTRUMENT_WORDS, ACOUSTIC_SOURCE_MIN,
+                             SIBLING_CAP, SIBLING_CAP_CATS, SIBLING_SETS_ONLY, SET_SPREAD_RANGE, sibling_cap,
+@@ -4010,6 +4011,38 @@ def _split_capped_groups(groups, P, planned, ceil, fmax, rec, max_splits=6):
+     return groups
+ 
+ 
++def _split_oversize(groups, P, ceil, target, min_n):
++    """FOLDER_ADAPTIVE: a group of more than `ceil` files splits (KMeans) into about one
++    part per `target` files, a part under `min_n` joining its nearest part (CLAP centroid),
++    and again until none holds more than `ceil`. A group KMeans can't split (near-identical
++    files) is cut into even runs along its first principal component."""
++    from sklearn.cluster import KMeans
++    out, todo = [], [list(g) for g in groups]
++    while todo:
++        g = todo.pop(0)
++        if len(g) <= ceil:
++            out.append(g)
++            continue
++        k = max(2, int(np.ceil(len(g) / target)))
++        with _limit_threads():
++            lab = KMeans(n_clusters=k, n_init=4, random_state=CURATION_SEED).fit(P[g]).labels_
++        parts = [sorted(g[q] for q in range(len(g)) if lab[q] == c) for c in range(k)]
++        parts = [p for p in parts if p]
++        while len(parts) > 1 and min(map(len, parts)) < min_n:
++            i = min(range(len(parts)), key=lambda j: (len(parts[j]), j))
++            cents = [P[p].mean(0) for p in parts]
++            cents = [c / (np.linalg.norm(c) + 1e-9) for c in cents]
++            j = max((m for m in range(len(parts)) if m != i), key=lambda m: (float(cents[i] @ cents[m]), -m))
++            parts[j] = sorted(parts[j] + parts[i])
++            del parts[i]
++        if len(parts) < 2:
++            order = sorted(g, key=lambda i: (float(P[i][0]), i))
++            step = int(np.ceil(len(order) / k))
++            parts = [sorted(order[s:s + step]) for s in range(0, len(order), step)]
++        todo[:0] = parts
++    return out
++
++
+ def _cluster_by_tempo(P, bpms, edges, floor, kmax=30, kmin=8, kdiv=800, files=None, per_folder=None,
+                       seedfn=None, band_min=None):
+     """Sound clusters WITHIN tempo bands. The total family count follows the usual
+@@ -5229,7 +5262,7 @@ def _select_records(rows, cfg, emb_n, id2row, homes=None, support=None, category
+             library_rel(d["path"] or "")) else None, max(1, int(np.ceil(VOX_CHOIR_SHARE * _vb)))),
+             "choir_capped")
+         stats["choir_capped"] = _bc - len(rec)
+-    if cfg.get("dir_cap"):
++    if cfg.get("dir_cap") and DIR_CAPS:
+         _bd = len(rec)
+         rec = _gone(rec, _cap_group_spread(rec, emb_n, lambda d: os.path.dirname(d["path"] or ""),
+                                            int(cfg["dir_cap"])), "dir_capped", int(cfg["dir_cap"]))
+@@ -6531,6 +6564,9 @@ def build_taxonomy(session, category, out_dir, per_family=DEFAULT_PER_FAMILY,
+         P = PCA(n_components=ncomp, svd_solver="full", random_state=CURATION_SEED).fit_transform(emb[R])
+     fmax = int(cfg.get("folder_max", FOLDER_MAX))
+     kmax = min(int(cfg.get("kmax", 30)), fmax)
++    if FOLDER_ADAPTIVE and _f is None:
++        # as many folders as the files need, whatever the category's kmax and folder cap
++        fmax = kmax = max(1, int(np.ceil(min(budget, len(rec)) / FOLDER_TARGET_FILES)))
+     if _f is None:
+         kmax = _folder_kmax(kmax, budget, len(rec))
+         kmin = _family_kmin(budget, ceil, int(cfg.get("kmin", 8)), kmax, n=len(rec), floor=floor)
+@@ -6567,9 +6603,9 @@ def build_taxonomy(session, category, out_dir, per_family=DEFAULT_PER_FAMILY,
+             if not idx:
+                 continue
+             share = len(idx) / len(rec)
+-            if cfg.get("band_share"):
++            if cfg.get("band_share") and not FOLDER_ADAPTIVE:
+                 # fixed shares: folders (and files, below) follow what the band is for,
+-                # not how big its pool happens to be
++                # not how big its pool happens to be (adaptive folders follow the pool)
+                 share = cfg["band_share"].get(band, share)
+             if cfg.get("tempo_bands"):
+                 sub, k = _cluster_by_tempo(P[idx], [rec[i].get("bpm_fold") or rec[i]["bpm"] for i in idx],
+@@ -6577,8 +6613,10 @@ def build_taxonomy(session, category, out_dir, per_family=DEFAULT_PER_FAMILY,
+                                            kmax=max(1, int(round(kmax * share))),
+                                            kmin=max(1, int(round(kmin * share))),
+                                            kdiv=cfg.get("kdiv", 800),
+-                                           files=budget * share if cfg.get("tempo_folder_files") else None,
+-                                           per_folder=cfg.get("tempo_folder_files"),
++                                           files=(min(budget, len(rec)) if FOLDER_ADAPTIVE else budget) * share
++                                           if (FOLDER_ADAPTIVE or cfg.get("tempo_folder_files")) else None,
++                                           per_folder=FOLDER_TARGET_FILES if FOLDER_ADAPTIVE
++                                           else cfg.get("tempo_folder_files"),
+                                            seedfn=lambda loc, idx=idx: _seeds([idx[q] for q in loc]),
+                                            band_min=None if _f is None else
+                                            tempo_band_min(len(idx), budget * share))
+@@ -6644,6 +6682,11 @@ def build_taxonomy(session, category, out_dir, per_family=DEFAULT_PER_FAMILY,
+         groups = _split_capped_groups(groups, P, _planned, ceil, fmax, rec)
+         if len(groups) < _ng:
+             log(f"{category}: {_ng - len(groups)} folder(s) under {_fmin} files merged into a neighbor")
++    if FOLDER_ADAPTIVE and _f is None:
++        _ng = len(groups)
++        groups = _split_oversize(groups, P, ceil, FOLDER_TARGET_FILES, _fmin)
++        if len(groups) > _ng:
++            log(f"{category}: folders over {ceil} files split, {_ng} -> {len(groups)} folders")
+     for idxs in groups:
+         if category in SIBLING_CAP_CATS:
+             _before = len(idxs)
+diff --git a/src/fourier/packs/curate_config.py b/src/fourier/packs/curate_config.py
+index f97f50b..5438b30 100644
+--- a/src/fourier/packs/curate_config.py
++++ b/src/fourier/packs/curate_config.py
+@@ -944,6 +944,96 @@ FOLDER_MAX = _tunable("FOLDER_MAX", 12)
+ # count, never raises it.
+ FOLDER_TARGET_FILES = _tunable("FOLDER_TARGET_FILES", 45)
+ FOLDER_MIN = _tunable("FOLDER_MIN", 3)
++# FOLDER_ADAPTIVE: a category gets as many folders as its files need, about one per
++# FOLDER_TARGET_FILES, whatever its kmax and folder cap; and a folder holding more than
++# curate.MAX_PER_FAMILY files splits (KMeans) instead of leaving the rest out
++# (curate._split_oversize). Off by default (the folder caps as above).
++FOLDER_ADAPTIVE = _tunable("FOLDER_ADAPTIVE", False)
++# A category's dir_cap (one folder of one pack supplies at most that many candidates);
++# False turns every category's off.
++DIR_CAPS = _tunable("DIR_CAPS", True)
++
++# A render's third folder level (paths.folder_depth 3: CATEGORY/group/family,
++# packs/folder_groups.py). A category with more than GROUP_MIN_FOLDERS family folders gets
++# one group folder per kind of sound; a smaller one keeps CATEGORY/family. Each rule is
++# (group, what, values): "tag" a Live auto-tag on the file (the Live 12 tags Fourier reads,
++# ingest/ableton_tags.py), "band" the file's band, "name" a word of the family folder's name
++# (words are "-"-separated; values are alternatives), "tempo" the family's tempo range
++# ((low, high) BPM from its name). A file takes the first rule it meets; a family the group
++# most of its files take (GROUP_FALLBACK when none). A group of one folder joins
++# GROUP_FALLBACK when two or more such groups are left.
++GROUP_MIN_FOLDERS = _tunable("GROUP_MIN_FOLDERS", 12)
++GROUP_FALLBACK = _tunable("GROUP_FALLBACK", "other")
++_HAND = ("Conga", "Bongo", "Djembe", "Tabla", "Timbale")
++FOLDER_GROUPS = _tunable("FOLDER_GROUPS", {
++    "KICKS": [("808", "name", ("808",)), ("808", "tag", ("808 Bass",)),
++              ("drum-machine", "name", ("vintage", "drum-machine", "analog", "machine")),
++              ("dirty", "name", ("gritty", "crunchy", "distorted", "lo-fi", "dusty")),
++              ("long", "name", ("long-tail", "heavy", "boomy")),
++              ("tonal", "name", ("tonal", "low-tuned")),
++              ("punchy", "name", ("clicky", "punchy", "snappy", "tight", "gated", "squashed", "attack")),
++              ("soft", "name", ("soft", "wooden", "knock"))],
++    "SNARES": [("rim", "tag", ("Rim",)), ("rim", "name", ("rim", "rimshot")),
++               ("clap-snare", "name", ("clap",)),
++               ("breaks-lofi", "name", ("breakbeat", "lo-fi", "dusty", "crunchy", "vinyl")),
++               ("bright", "name", ("bright", "metallic")),
++               ("tonal", "name", ("tonal", "dark")),
++               ("snappy", "name", ("snappy", "clicky", "punchy", "gated", "short", "squashed", "tight")),
++               ("long", "name", ("long-tail", "soft"))],
++    "CLAPS": [("snaps", "tag", ("Snap",)), ("snaps", "name", ("finger-snap", "snap")),
++              ("long", "name", ("long-tail",)),
++              ("short", "name", ("gated", "tight", "snappy", "clicky", "short"))],
++    "HATS": [("shaker", "tag", ("Shaker",)), ("tambourine", "tag", ("Tambourine",)),
++             ("pedal", "tag", ("Pedal Hihat",)),
++             ("closed", "band", ("closed",)), ("open", "band", ("open",))],
++    "CYMBALS": [("ride", "band", ("ride",)), ("crash", "band", ("crash",)),
++                ("ride", "tag", ("Ride",)), ("crash", "tag", ("Crash", "Splash"))],
++    "TOMS": [("high", "tag", ("High Tom",)), ("mid", "tag", ("Mid Tom",)), ("low", "tag", ("Low Tom",))],
++    "PERC": [("hand-drums", "tag", _HAND),
++             ("hand-drums", "name", ("conga", "bongo", "djembe", "tabla", "timbale", "frame-drum")),
++             ("wood", "tag", ("Wood",)), ("wood", "name", ("wood", "wooden", "clave", "block")),
++             ("metal", "tag", ("Cowbell", "Bell", "Triangle", "Chime", "Gong", "Misc Mallets")),
++             ("metal", "name", ("metallic", "cowbell", "bell")),
++             ("shakers", "tag", ("Shaker", "Tambourine")), ("shakers", "name", ("shaken", "shaker")),
++             ("snaps-claps", "tag", ("Snap", "Clap"))],
++    "DRUMLOOPS": [("tops", "band", ("tops",)), ("classic-breaks", "band", ("classic",)),
++                  ("060-100bpm", "tempo", (0, 100)), ("100-120bpm", "tempo", (100, 120)),
++                  ("120-130bpm", "tempo", (120, 130)), ("130-140bpm", "tempo", (130, 140)),
++                  ("140-160bpm", "tempo", (140, 160)), ("160-200bpm", "tempo", (160, 1000))],
++    "PHRASES": [("acid", "band", ("acid",)), ("bass", "band", ("bass",)), ("chords", "band", ("chords",)),
++                ("lead", "band", ("lead",)), ("live", "band", ("live",))],
++    "SUB": [("808", "tag", ("808 Bass",)), ("808", "name", ("808",)),
++            ("wobble", "name", ("wobble", "reese")),
++            ("short", "name", ("short", "plucky", "punchy", "fm")),
++            ("sustained", "name", ("sustained", "swelling", "sine", "saw", "detuned"))],
++    "SYNTH": [("bass", "tag", ("Synth Bass",)), ("bass", "name", ("bass",)),
++              ("lead", "tag", ("Lead",)), ("lead", "name", ("lead",)),
++              ("bells", "tag", ("Bell", "Chime", "Misc Mallets", "Synth Mallets")),
++              ("bells", "name", ("bell", "glassy")),
++              ("keys", "tag", ("Synth Keys", "Organ", "Piano", "Electric Piano")),
++              ("pads", "tag", ("Pad", "Synth Strings", "Atmosphere")), ("pads", "name", ("pad",)),
++              ("plucks", "name", ("plucky", "pluck", "short"))],
++    "STABS": [("hits", "tag", ("Sound FX", "Impact")), ("keys", "tag", ("Synth Keys", "Electric Piano", "Piano", "Organ")),
++              ("bass", "tag", ("Synth Bass",)), ("pads", "tag", ("Pad", "Atmosphere"))],
++    "PADS": [("textures", "name", ("texture", "granular", "warped", "evolving")),
++             ("atmospheres", "tag", ("Atmosphere",)), ("pads", "tag", ("Pad", "Synth Strings"))],
++    "PIANO": [("chords", "band", ("chord",)), ("electric", "tag", ("Electric Piano",)),
++              ("organ", "tag", ("Organ",)), ("piano", "band", ("note",))],
++    "ACOUSTIC": [("strings", "band", ("string",)), ("winds", "band", ("wind",)),
++                 ("plucked", "band", ("plucked",)), ("mallets", "band", ("mallet",))],
++    "VOX": [("shouts", "name", ("shout", "hey", "yeah", "ho", "chant")),
++            ("chops", "name", ("glitched", "chop", "chops", "cut", "stab", "pitched")),
++            ("ad-libs", "name", ("ad-lib", "adlib")),
++            ("speech", "tag", ("Speech",)), ("choir", "tag", ("Choir",)),
++            ("synth-voice", "tag", ("Synth Voice",)), ("vocals", "tag", ("Solo Voice",))],
++    "FX": [("impacts", "band", ("impact",)), ("risers", "band", ("riser",)),
++           ("downlifters", "band", ("downlifter",)), ("whooshes", "band", ("whoosh",)),
++           ("sweeps", "band", ("sweep",)), ("noise", "band", ("noise",)),
++           ("ambience", "band", ("ambience",)), ("foley", "band", ("foley",)),
++           ("scratches", "band", ("scratch",))],
++    "BLIPS": [("game", "name", ("video-game", "retro", "8-bit", "chip")), ("ui", "name", ("ui", "click", "interface")),
++              ("beeps", "name", ("beep", "computer"))],
++})
+ 
+ # --- naming must describe the folder ---
+ # The CLAP phrase that best separates a folder from its siblings need not describe what
+diff --git a/src/fourier/packs/folder_groups.py b/src/fourier/packs/folder_groups.py
+new file mode 100644
+index 0000000..463c0fa
+--- /dev/null
++++ b/src/fourier/packs/folder_groups.py
+@@ -0,0 +1,89 @@
++"""A render's third folder level: CATEGORY/group/family (paths.folder_depth 3).
++
++The master stays CATEGORY/family/file. A render to a profile with three folder levels puts
++each family folder of a large category (more than GROUP_MIN_FOLDERS family folders) under a
++group folder named for the kind of sound it holds: "closed" and "open" hats, "hand-drums"
++and "wood" percussion, "risers" and "foley" FX. The groups follow curate_config.FOLDER_GROUPS
++(Live 12's auto-tags, the files' bands, words of the family name, the family's tempo), read
++from the master's manifest, so a render needs no database.
++"""
++from __future__ import annotations
++
++import json
++import re
++from collections import Counter
++from pathlib import Path
++
++_BPM = re.compile(r"^(\d{2,3})-(\d{2,3})bpm(?:-|$)")
++
++
++def _family_bpm(family: str) -> float | None:
++    """The middle of a family's tempo range, from its name ("130-135bpm-gritty": 132.5)."""
++    m = _BPM.match(family)
++    return (int(m.group(1)) + int(m.group(2))) / 2 if m else None
++
++
++def _rule_hit(rule, entry: dict, family: str) -> bool:
++    _group, what, values = rule
++    if what == "tag":
++        return bool(set(entry.get("ableton") or ()) & set(values))
++    if what == "band":
++        return entry.get("band") in values
++    if what == "name":
++        name = f"-{family.lower()}-"
++        return any(f"-{v.lower()}-" in name for v in values)
++    if what == "tempo":
++        bpm = _family_bpm(family)
++        return bpm is not None and values[0] <= bpm < values[1]
++    raise ValueError(f"FOLDER_GROUPS: unknown rule kind {what!r}")
++
++
++def entry_group(rules, entry: dict, family: str) -> str | None:
++    """The group of the first rule this file meets, or None."""
++    for rule in rules:
++        if _rule_hit(rule, entry, family):
++            return rule[0]
++    return None
++
++
++def category_groups(category: str, families: dict[str, list[dict]], rules=None,
++                    min_folders=None, fallback=None) -> dict[str, str]:
++    """{family: group} for one category, or {} when it keeps two levels (no rules, at most
++    min_folders family folders, or every family in one group)."""
++    from .curate_config import FOLDER_GROUPS, GROUP_FALLBACK, GROUP_MIN_FOLDERS
++    rules = FOLDER_GROUPS.get(category) if rules is None else rules
++    min_folders = GROUP_MIN_FOLDERS if min_folders is None else min_folders
++    fallback = GROUP_FALLBACK if fallback is None else fallback
++    if not rules or len(families) <= min_folders:
++        return {}
++    order = {r[0]: i for i, r in reversed(list(enumerate(rules)))}      # first rule's position
++    out = {}
++    for fam, entries in sorted(families.items()):
++        votes = Counter(entry_group(rules, e, fam) for e in entries)
++        votes.pop(None, None)
++        if not votes or sum(votes.values()) * 2 < len(entries):
++            # most files meet no rule: the family's name may still say (a "name" rule)
++            out[fam] = entry_group(rules, {}, fam) or fallback
++            continue
++        out[fam] = max(votes, key=lambda g: (votes[g], -order.get(g, 1 << 30)))
++    sizes = Counter(out.values())
++    lone = [g for g, n in sizes.items() if n == 1 and g != fallback]
++    if len(lone) >= 2:
++        out = {f: (fallback if g in lone else g) for f, g in out.items()}
++    if len(set(out.values())) <= 1:
++        return {}
++    return out
++
++
++def master_groups(master_dir) -> dict[tuple[str, str], str]:
++    """{(category, family): group} for every category of the master that gets a group level."""
++    man = json.loads((Path(master_dir) / "manifest.json").read_text())
++    out = {}
++    for cat, cd in man.get("categories", {}).items():
++        fams: dict[str, list[dict]] = {}
++        for e in cd.get("entries", []):
++            fam = e.get("family") or e["out"].rpartition("/")[0]
++            fams.setdefault(fam, []).append(e)
++        for fam, g in category_groups(cat, fams).items():
++            out[(cat, fam)] = g
++    return out
+diff --git a/src/fourier/packs/releases.py b/src/fourier/packs/releases.py
+index 804d861..4e14f61 100644
+--- a/src/fourier/packs/releases.py
++++ b/src/fourier/packs/releases.py
+@@ -153,7 +153,7 @@ def import_version(session, version, root=RELEASES_ROOT, log=print):
+                 session.execute(text(
+                     "INSERT INTO release_file(release_id,category,family,out_path,out_md5) "
+                     "VALUES(:r,:c,:f,:o,:m)"),
+-                    dict(r=rid, c=parts[0], f=(parts[1] if len(parts) > 2 else ""), o=rel,
++                    dict(r=rid, c=parts[0], f=(parts[-2] if len(parts) > 2 else ""), o=rel,
+                          m=_md5_file(os.path.join(dp, f))))
+                 n += 1
+     session.execute(text("UPDATE release SET n_files=:n WHERE id=:r"), {"n": n, "r": rid})
+diff --git a/src/fourier/packs/render.py b/src/fourier/packs/render.py
+index c2ebc3b..12216e8 100644
+--- a/src/fourier/packs/render.py
++++ b/src/fourier/packs/render.py
+@@ -210,18 +210,25 @@ def _ext(device) -> str:
+     return extension(_out_format(device)) if device is not None else ".wav"
+ 
+ 
+-def _rel_dest(category: str, family: str, stem: str, allowed_sub: int, device=None) -> Path:
++def _rel_dest(category: str, family: str, stem: str, allowed_sub: int, device=None,
++              group: str | None = None) -> Path:
+     """Where a master file lands in the render, relative to the device root. The category
+-    folder is numbered in play order (curate_config.category_dir: '01_KICKS')."""
++    folder is numbered in play order (curate_config.category_dir: '01_KICKS'); with three
++    levels and a group (packs/folder_groups.py) the family folder sits in the group's."""
+     from .curate_config import category_dir
+     ext = _ext(device)
++    grouped = bool(group) and allowed_sub >= 3
+     if ext != ".wav" or _names_apply(device):
+-        cdir = _device_name(_sanitize_filename(category_dir(category)), device)
++        cdir = Path(_device_name(_sanitize_filename(category_dir(category)), device))
++        if grouped:
++            cdir = cdir / _device_name(_sanitize_filename(group, None), device)
+         if allowed_sub >= 2:
+-            return (Path(cdir) / _device_name(_sanitize_filename(family, None), device)
++            return (cdir / _device_name(_sanitize_filename(family, None), device)
+                     / _device_name(_sanitize_filename(stem, None), device, ext))
+-        return Path(cdir) / _device_name(_sanitize_filename(f"{family}__{stem}", None), device, ext)
+-    cdir = _sanitize_filename(category_dir(category))
++        return cdir / _device_name(_sanitize_filename(f"{family}__{stem}", None), device, ext)
++    cdir = Path(_sanitize_filename(category_dir(category)))
++    if grouped:
++        cdir = cdir / _sanitize_filename(group, None)
+     # the file's name is the master's (curate: exporter.canonical_stem), the same on every
+     # device: a render never shortens it ("learn the library once")
+     if allowed_sub >= 2:
+@@ -542,9 +549,14 @@ def _assignment(master_dir, device, lock=None):
+         files = [f for f in files if f.master not in over]
+     # the profile's own name rules and extension (None/".wav" for a profile that sets neither)
+     rules = device if (_names_apply(device) or _ext(device) != ".wav") else None
++    groups = {}
++    if sub >= 3:
++        from .folder_groups import master_groups
++        groups = master_groups(master_dir)
+     whole = {}
+     for f in files:
+-        whole.setdefault(f.key, _rel_dest(f.category, f.family, f.stem, sub, rules))
++        whole.setdefault(f.key, _rel_dest(f.category, f.family, f.stem, sub, rules,
++                                          group=groups.get((f.category, f.family))))
+     keys = list(whole)
+     fitted = dict(zip(keys, _fit_all([whole[k] for k in keys], prefix, limit)))
+     fresh = lambda f: fitted[f.key].as_posix()
+diff --git a/src/fourier/packs/verify.py b/src/fourier/packs/verify.py
+index 0a57ac8..e756515 100644
+--- a/src/fourier/packs/verify.py
++++ b/src/fourier/packs/verify.py
+@@ -316,11 +316,15 @@ def check_budgets(ctx):
+     big = [(c, f["family"], f["copied"]) for c, fl in ctx.fams.items() for f in fl
+            if f["copied"] > MAX_PER_FAMILY]
+     yield Result(FAIL if big else PASS, f"no folder over {MAX_PER_FAMILY} files", _fmt(big))
+-    from .curate_config import CATEGORIES, FOLDER_MAX
++    from .curate_config import CATEGORIES, FOLDER_MAX, FOLDER_ADAPTIVE, FOLDER_TARGET_FILES
+     many, many_t = [], []
+     for c, fl in ctx.fams.items():
+         cfg = CATEGORIES.get(c, {})
+         cap = int(cfg.get("folder_max", FOLDER_MAX))
++        if FOLDER_ADAPTIVE:
++            # adaptive folders (curate._split_oversize): one per FOLDER_TARGET_FILES files,
++            # and a split can leave its parts at half that
++            cap = max(cap, int(np.ceil(2 * len(ctx.cats[c]["entries"]) / FOLDER_TARGET_FILES)))
+         cap += int(np.ceil(cap * _add))
+         if len(fl) > cap:
+             (many_t if cfg.get("tempo_bands") else many).append((c, len(fl), cap))
+@@ -336,6 +340,11 @@ def check_budgets(ctx):
+         most = lambda c, fl: max(1, int(round(_B[c] / max(sc["folder_files"], 1))),  # noqa: E731
+                                  len({f.get("band") for f in fl}))
+         per = sc["folder_files"]
++    elif FOLDER_ADAPTIVE:
++        # folders follow the files kept, not the budget (a split can halve a folder)
++        most = lambda c, fl: max(FOLDER_MIN, int(np.ceil(  # noqa: E731
++            2 * len(ctx.cats[c]["entries"]) / FOLDER_TARGET_FILES)))
++        per = FOLDER_TARGET_FILES
+     else:
+         most = lambda c, fl: max(FOLDER_MIN, int(round(_B[c] / FOLDER_TARGET_FILES)))  # noqa: E731
+         per = FOLDER_TARGET_FILES
+diff --git a/tests/data/tunables_snapshot.json b/tests/data/tunables_snapshot.json
+index 8a4efcc..d9f3050 100644
+--- a/tests/data/tunables_snapshot.json
++++ b/tests/data/tunables_snapshot.json
+@@ -8674,5 +8674,1361 @@
+    "$re": "[ _.-]+[a-z]{0,2}\\d+[a-z]?$",
+    "flags": 34
+   }
++ },
++ "curate_config.FOLDER_ADAPTIVE": {
++  "type": "bool",
++  "value": false
++ },
++ "curate_config.DIR_CAPS": {
++  "type": "bool",
++  "value": true
++ },
++ "curate_config.GROUP_MIN_FOLDERS": {
++  "type": "int",
++  "value": 12
++ },
++ "curate_config.GROUP_FALLBACK": {
++  "type": "str",
++  "value": "other"
++ },
++ "curate_config.FOLDER_GROUPS": {
++  "type": "dict",
++  "value": {
++   "$dict": [
++    [
++     "KICKS",
++     [
++      {
++       "$tuple": [
++        "808",
++        "name",
++        {
++         "$tuple": [
++          "808"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "808",
++        "tag",
++        {
++         "$tuple": [
++          "808 Bass"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "drum-machine",
++        "name",
++        {
++         "$tuple": [
++          "vintage",
++          "drum-machine",
++          "analog",
++          "machine"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "dirty",
++        "name",
++        {
++         "$tuple": [
++          "gritty",
++          "crunchy",
++          "distorted",
++          "lo-fi",
++          "dusty"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "long",
++        "name",
++        {
++         "$tuple": [
++          "long-tail",
++          "heavy",
++          "boomy"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "tonal",
++        "name",
++        {
++         "$tuple": [
++          "tonal",
++          "low-tuned"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "punchy",
++        "name",
++        {
++         "$tuple": [
++          "clicky",
++          "punchy",
++          "snappy",
++          "tight",
++          "gated",
++          "squashed",
++          "attack"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "soft",
++        "name",
++        {
++         "$tuple": [
++          "soft",
++          "wooden",
++          "knock"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "SNARES",
++     [
++      {
++       "$tuple": [
++        "rim",
++        "tag",
++        {
++         "$tuple": [
++          "Rim"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "rim",
++        "name",
++        {
++         "$tuple": [
++          "rim",
++          "rimshot"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "clap-snare",
++        "name",
++        {
++         "$tuple": [
++          "clap"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "breaks-lofi",
++        "name",
++        {
++         "$tuple": [
++          "breakbeat",
++          "lo-fi",
++          "dusty",
++          "crunchy",
++          "vinyl"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "bright",
++        "name",
++        {
++         "$tuple": [
++          "bright",
++          "metallic"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "tonal",
++        "name",
++        {
++         "$tuple": [
++          "tonal",
++          "dark"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "snappy",
++        "name",
++        {
++         "$tuple": [
++          "snappy",
++          "clicky",
++          "punchy",
++          "gated",
++          "short",
++          "squashed",
++          "tight"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "long",
++        "name",
++        {
++         "$tuple": [
++          "long-tail",
++          "soft"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "CLAPS",
++     [
++      {
++       "$tuple": [
++        "snaps",
++        "tag",
++        {
++         "$tuple": [
++          "Snap"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "snaps",
++        "name",
++        {
++         "$tuple": [
++          "finger-snap",
++          "snap"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "long",
++        "name",
++        {
++         "$tuple": [
++          "long-tail"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "short",
++        "name",
++        {
++         "$tuple": [
++          "gated",
++          "tight",
++          "snappy",
++          "clicky",
++          "short"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "HATS",
++     [
++      {
++       "$tuple": [
++        "shaker",
++        "tag",
++        {
++         "$tuple": [
++          "Shaker"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "tambourine",
++        "tag",
++        {
++         "$tuple": [
++          "Tambourine"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "pedal",
++        "tag",
++        {
++         "$tuple": [
++          "Pedal Hihat"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "closed",
++        "band",
++        {
++         "$tuple": [
++          "closed"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "open",
++        "band",
++        {
++         "$tuple": [
++          "open"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "CYMBALS",
++     [
++      {
++       "$tuple": [
++        "ride",
++        "band",
++        {
++         "$tuple": [
++          "ride"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "crash",
++        "band",
++        {
++         "$tuple": [
++          "crash"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "ride",
++        "tag",
++        {
++         "$tuple": [
++          "Ride"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "crash",
++        "tag",
++        {
++         "$tuple": [
++          "Crash",
++          "Splash"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "TOMS",
++     [
++      {
++       "$tuple": [
++        "high",
++        "tag",
++        {
++         "$tuple": [
++          "High Tom"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "mid",
++        "tag",
++        {
++         "$tuple": [
++          "Mid Tom"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "low",
++        "tag",
++        {
++         "$tuple": [
++          "Low Tom"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "PERC",
++     [
++      {
++       "$tuple": [
++        "hand-drums",
++        "tag",
++        {
++         "$tuple": [
++          "Conga",
++          "Bongo",
++          "Djembe",
++          "Tabla",
++          "Timbale"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "hand-drums",
++        "name",
++        {
++         "$tuple": [
++          "conga",
++          "bongo",
++          "djembe",
++          "tabla",
++          "timbale",
++          "frame-drum"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "wood",
++        "tag",
++        {
++         "$tuple": [
++          "Wood"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "wood",
++        "name",
++        {
++         "$tuple": [
++          "wood",
++          "wooden",
++          "clave",
++          "block"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "metal",
++        "tag",
++        {
++         "$tuple": [
++          "Cowbell",
++          "Bell",
++          "Triangle",
++          "Chime",
++          "Gong",
++          "Misc Mallets"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "metal",
++        "name",
++        {
++         "$tuple": [
++          "metallic",
++          "cowbell",
++          "bell"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "shakers",
++        "tag",
++        {
++         "$tuple": [
++          "Shaker",
++          "Tambourine"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "shakers",
++        "name",
++        {
++         "$tuple": [
++          "shaken",
++          "shaker"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "snaps-claps",
++        "tag",
++        {
++         "$tuple": [
++          "Snap",
++          "Clap"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "DRUMLOOPS",
++     [
++      {
++       "$tuple": [
++        "tops",
++        "band",
++        {
++         "$tuple": [
++          "tops"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "classic-breaks",
++        "band",
++        {
++         "$tuple": [
++          "classic"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "060-100bpm",
++        "tempo",
++        {
++         "$tuple": [
++          0,
++          100
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "100-120bpm",
++        "tempo",
++        {
++         "$tuple": [
++          100,
++          120
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "120-130bpm",
++        "tempo",
++        {
++         "$tuple": [
++          120,
++          130
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "130-140bpm",
++        "tempo",
++        {
++         "$tuple": [
++          130,
++          140
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "140-160bpm",
++        "tempo",
++        {
++         "$tuple": [
++          140,
++          160
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "160-200bpm",
++        "tempo",
++        {
++         "$tuple": [
++          160,
++          1000
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "PHRASES",
++     [
++      {
++       "$tuple": [
++        "acid",
++        "band",
++        {
++         "$tuple": [
++          "acid"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "bass",
++        "band",
++        {
++         "$tuple": [
++          "bass"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "chords",
++        "band",
++        {
++         "$tuple": [
++          "chords"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "lead",
++        "band",
++        {
++         "$tuple": [
++          "lead"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "live",
++        "band",
++        {
++         "$tuple": [
++          "live"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "SUB",
++     [
++      {
++       "$tuple": [
++        "808",
++        "tag",
++        {
++         "$tuple": [
++          "808 Bass"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "808",
++        "name",
++        {
++         "$tuple": [
++          "808"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "wobble",
++        "name",
++        {
++         "$tuple": [
++          "wobble",
++          "reese"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "short",
++        "name",
++        {
++         "$tuple": [
++          "short",
++          "plucky",
++          "punchy",
++          "fm"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "sustained",
++        "name",
++        {
++         "$tuple": [
++          "sustained",
++          "swelling",
++          "sine",
++          "saw",
++          "detuned"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "SYNTH",
++     [
++      {
++       "$tuple": [
++        "bass",
++        "tag",
++        {
++         "$tuple": [
++          "Synth Bass"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "bass",
++        "name",
++        {
++         "$tuple": [
++          "bass"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "lead",
++        "tag",
++        {
++         "$tuple": [
++          "Lead"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "lead",
++        "name",
++        {
++         "$tuple": [
++          "lead"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "bells",
++        "tag",
++        {
++         "$tuple": [
++          "Bell",
++          "Chime",
++          "Misc Mallets",
++          "Synth Mallets"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "bells",
++        "name",
++        {
++         "$tuple": [
++          "bell",
++          "glassy"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "keys",
++        "tag",
++        {
++         "$tuple": [
++          "Synth Keys",
++          "Organ",
++          "Piano",
++          "Electric Piano"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "pads",
++        "tag",
++        {
++         "$tuple": [
++          "Pad",
++          "Synth Strings",
++          "Atmosphere"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "pads",
++        "name",
++        {
++         "$tuple": [
++          "pad"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "plucks",
++        "name",
++        {
++         "$tuple": [
++          "plucky",
++          "pluck",
++          "short"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "STABS",
++     [
++      {
++       "$tuple": [
++        "hits",
++        "tag",
++        {
++         "$tuple": [
++          "Sound FX",
++          "Impact"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "keys",
++        "tag",
++        {
++         "$tuple": [
++          "Synth Keys",
++          "Electric Piano",
++          "Piano",
++          "Organ"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "bass",
++        "tag",
++        {
++         "$tuple": [
++          "Synth Bass"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "pads",
++        "tag",
++        {
++         "$tuple": [
++          "Pad",
++          "Atmosphere"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "PADS",
++     [
++      {
++       "$tuple": [
++        "textures",
++        "name",
++        {
++         "$tuple": [
++          "texture",
++          "granular",
++          "warped",
++          "evolving"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "atmospheres",
++        "tag",
++        {
++         "$tuple": [
++          "Atmosphere"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "pads",
++        "tag",
++        {
++         "$tuple": [
++          "Pad",
++          "Synth Strings"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "PIANO",
++     [
++      {
++       "$tuple": [
++        "chords",
++        "band",
++        {
++         "$tuple": [
++          "chord"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "electric",
++        "tag",
++        {
++         "$tuple": [
++          "Electric Piano"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "organ",
++        "tag",
++        {
++         "$tuple": [
++          "Organ"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "piano",
++        "band",
++        {
++         "$tuple": [
++          "note"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "ACOUSTIC",
++     [
++      {
++       "$tuple": [
++        "strings",
++        "band",
++        {
++         "$tuple": [
++          "string"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "winds",
++        "band",
++        {
++         "$tuple": [
++          "wind"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "plucked",
++        "band",
++        {
++         "$tuple": [
++          "plucked"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "mallets",
++        "band",
++        {
++         "$tuple": [
++          "mallet"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "VOX",
++     [
++      {
++       "$tuple": [
++        "shouts",
++        "name",
++        {
++         "$tuple": [
++          "shout",
++          "hey",
++          "yeah",
++          "ho",
++          "chant"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "chops",
++        "name",
++        {
++         "$tuple": [
++          "glitched",
++          "chop",
++          "chops",
++          "cut",
++          "stab",
++          "pitched"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "ad-libs",
++        "name",
++        {
++         "$tuple": [
++          "ad-lib",
++          "adlib"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "speech",
++        "tag",
++        {
++         "$tuple": [
++          "Speech"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "choir",
++        "tag",
++        {
++         "$tuple": [
++          "Choir"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "synth-voice",
++        "tag",
++        {
++         "$tuple": [
++          "Synth Voice"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "vocals",
++        "tag",
++        {
++         "$tuple": [
++          "Solo Voice"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "FX",
++     [
++      {
++       "$tuple": [
++        "impacts",
++        "band",
++        {
++         "$tuple": [
++          "impact"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "risers",
++        "band",
++        {
++         "$tuple": [
++          "riser"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "downlifters",
++        "band",
++        {
++         "$tuple": [
++          "downlifter"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "whooshes",
++        "band",
++        {
++         "$tuple": [
++          "whoosh"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "sweeps",
++        "band",
++        {
++         "$tuple": [
++          "sweep"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "noise",
++        "band",
++        {
++         "$tuple": [
++          "noise"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "ambience",
++        "band",
++        {
++         "$tuple": [
++          "ambience"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "foley",
++        "band",
++        {
++         "$tuple": [
++          "foley"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "scratches",
++        "band",
++        {
++         "$tuple": [
++          "scratch"
++         ]
++        }
++       ]
++      }
++     ]
++    ],
++    [
++     "BLIPS",
++     [
++      {
++       "$tuple": [
++        "game",
++        "name",
++        {
++         "$tuple": [
++          "video-game",
++          "retro",
++          "8-bit",
++          "chip"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "ui",
++        "name",
++        {
++         "$tuple": [
++          "ui",
++          "click",
++          "interface"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "beeps",
++        "name",
++        {
++         "$tuple": [
++          "beep",
++          "computer"
++         ]
++        }
++       ]
++      }
++     ]
++    ]
++   ]
++  }
+  }
+-}
++}
+\ No newline at end of file
+diff --git a/tests/test_folder_groups.py b/tests/test_folder_groups.py
+new file mode 100644
+index 0000000..00a6f90
+--- /dev/null
++++ b/tests/test_folder_groups.py
+@@ -0,0 +1,71 @@
++"""The render's third folder level (packs/folder_groups.py) and adaptive folder splits
++(curate._split_oversize)."""
++import numpy as np
++
++from fourier.packs import curate as C
++from fourier.packs import folder_groups as G
++from fourier.packs import render as R
++
++HAT_RULES = [("shaker", "tag", ("Shaker",)), ("closed", "band", ("closed",)), ("open", "band", ("open",))]
++
++
++def _fams(spec):
++    """{family: [entry, ...]} from {family: (n, band, tags)}."""
++    return {f: [dict(band=b, ableton=list(t)) for _ in range(n)] for f, (n, b, t) in spec.items()}
++
++
++def test_a_family_takes_the_group_most_of_its_files_take():
++    fams = _fams({"closed-a": (10, "closed", ["Closed Hihat"]), "closed-b": (8, "closed", []),
++                  "open-a": (6, "open", ["Open Hihat"]), "open-b": (6, "open", []),
++                  "shaker-a": (9, "closed", ["Shaker"]), "shaker-b": (5, "closed", ["Shaker"])})
++    got = G.category_groups("HATS", fams, rules=HAT_RULES, min_folders=2)
++    assert got == {"closed-a": "closed", "closed-b": "closed", "open-a": "open", "open-b": "open",
++                   "shaker-a": "shaker", "shaker-b": "shaker"}
++
++
++def test_a_small_category_keeps_two_levels():
++    fams = _fams({"closed-a": (10, "closed", []), "open-a": (6, "open", [])})
++    assert G.category_groups("HATS", fams, rules=HAT_RULES, min_folders=12) == {}
++
++
++def test_one_group_for_every_family_is_no_level():
++    fams = _fams({f"closed-{i}": (10, "closed", []) for i in range(5)})
++    assert G.category_groups("HATS", fams, rules=HAT_RULES, min_folders=2) == {}
++
++
++def test_lone_groups_join_the_fallback_and_name_and_tempo_rules_read_the_family():
++    rules = [("808", "name", ("808",)), ("long", "name", ("long-tail",)),
++             ("punchy", "name", ("clicky", "punchy")), ("soft", "name", ("soft",)),
++             ("fast", "tempo", (150, 1000))]
++    fams = _fams({"808-tonal": (5, None, []), "clicky-gated": (5, None, []), "punchy-tight": (5, None, []),
++                  "tonal-long-tail": (5, None, []), "clicky-soft": (5, None, []), "dark": (5, None, []),
++                  "160-165bpm-jungle": (5, None, [])})
++    got = G.category_groups("KICKS", fams, rules=rules, min_folders=2, fallback="other")
++    # "clicky-soft" meets "punchy" first; 808, long, fast and the unmatched "dark" are lone
++    assert got["clicky-gated"] == got["punchy-tight"] == got["clicky-soft"] == "punchy"
++    assert {got[f] for f in ("808-tonal", "tonal-long-tail", "dark", "160-165bpm-jungle")} == {"other"}
++
++
++def test_the_group_folder_sits_between_category_and_family():
++    assert R._rel_dest("HATS", "closed-clicky", "HH_1", 3, group="closed").as_posix() \
++        == "04_HATS/closed/closed-clicky/HH_1.wav"
++    # two levels, or no group: as before
++    assert R._rel_dest("HATS", "closed-clicky", "HH_1", 2, group="closed").as_posix() \
++        == "04_HATS/closed-clicky/HH_1.wav"
++    assert R._rel_dest("HATS", "closed-clicky", "HH_1", 3).as_posix() == "04_HATS/closed-clicky/HH_1.wav"
++
++
++def test_an_oversize_group_splits_until_none_is_over_the_ceiling():
++    rng = np.random.default_rng(0)
++    P = np.vstack([rng.normal(c, 0.1, size=(70, 4)) for c in (0, 3, 6)])     # 210 points, 3 blobs
++    groups = [list(range(210)), [0]]                                           # one huge, one tiny
++    out = C._split_oversize([list(range(210))], P, ceil=50, target=40, min_n=6)
++    assert sorted(i for g in out for i in g) == list(range(210))               # nothing left out
++    assert max(map(len, out)) <= 50 and min(map(len, out)) >= 6
++    assert C._split_oversize(groups[1:], P, ceil=50, target=40, min_n=6) == [[0]]
++
++
++def test_identical_files_split_into_even_runs():
++    P = np.zeros((120, 3))
++    out = C._split_oversize([list(range(120))], P, ceil=50, target=40, min_n=6)
++    assert sorted(i for g in out for i in g) == list(range(120)) and max(map(len, out)) <= 50
+-- 
+2.55.0
+

@@ -1,0 +1,8 @@
+# Digitakt II, 50 files a folder, three folder levels: CATEGORY/group/family.
+# UNVERIFIED: that the +Drive browser opens a folder inside a folder inside a category
+# folder (device-session-1-checklist.md, section 5). Preview only until that's checked.
+id: digitakt_2_50_3
+extends: digitakt_2_50
+name: Elektron Digitakt 2 (50 files a folder, three levels)
+paths:
+  folder_depth: {value: 3, status: convention}        # user's choice (Fourier patch 0004)

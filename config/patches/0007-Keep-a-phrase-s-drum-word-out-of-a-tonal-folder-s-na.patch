@@ -1,0 +1,59 @@
+From 2a4613f5f3aa0cebf16d15cb85c8b224687497b3 Mon Sep 17 00:00:00 2001
+From: Jules Youngberg <julesdayoungberg@gmail.com>
+Date: Thu, 5 Nov 2026 23:24:53 -0700
+Subject: [PATCH 7/8] Keep a phrase's drum word out of a tonal folder's name
+
+SUB's "punchy bass" phrase named four bass folders "punchy...", which verify's
+"tonal folders use tonal words" check fails. A tonal category's folder body now
+drops drum trait words.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/fourier/packs/naming.py | 7 +++++++
+ tests/test_naming.py        | 8 ++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/src/fourier/packs/naming.py b/src/fourier/packs/naming.py
+index c8323e6..dd2bf27 100644
+--- a/src/fourier/packs/naming.py
++++ b/src/fourier/packs/naming.py
+@@ -92,6 +92,9 @@ MELODIC_CATS = _tunable("MELODIC_CATS", _tax.with_role("melodic"))
+ # band lead carries its own note. Mirrors curate_config.NOTE_LEAD_CATS.
+ NOTE_LEAD_CATS = _tunable("NOTE_LEAD_CATS", _tax.with_role("note_lead"))
+ TONAL_CATS = _tunable("TONAL_CATS", _tax.with_role("tonal"))   # the one-shot melodic ones
++# drum trait words a phrase may carry that a tonal folder's name must not (verify.check_naming)
++_DRUM_BODY_WORDS = frozenset({"gated", "clicky", "snappy", "punchy", "squashed", "sub-heavy", "long-tail",
++                             "low-tuned", "high-tuned"})
+ # weight word per drum/fx category; categories absent here get no weight trait (a
+ # "sub-heavy" hat or cymbal is a measurement artefact, not a character)
+ SUB_WORD = _tunable("SUB_WORD", {"KICKS": "sub-heavy", "FX": "sub-heavy", "SNARES": "full", "TOMS": "full",
+@@ -488,6 +491,10 @@ def name_families(clusters, category, cfg, Zp, phrases, clap_z=CLAP_Z,
+         phrase = words(chosen[j]) if chosen[j] else []
+         body, lead = _body_and_lead(c, category, cfg, phrase, noun)
+         body = drop_noun(body, category)
++        if category in TONAL_CATS:
++            # a phrase's drum word ("punchy bass") never names a tonal folder: tonal folders
++            # take tonal words (verify: "tonal folders use tonal words")
++            body = [b for b in body if not set(words(b)) & _DRUM_BODY_WORDS]
+         bodies.append(body)
+         leads.append(lead)
+         bw = [x for b in body for x in words(b)]
+diff --git a/tests/test_naming.py b/tests/test_naming.py
+index 34291df..3e2d240 100644
+--- a/tests/test_naming.py
++++ b/tests/test_naming.py
+@@ -252,3 +252,11 @@ def test_hats_named_by_a_long_phrase_pass_the_half_trait_rule():
+     names = _name("HATS", cl, [[2.0, 0], [0, 2.0]], ["long hat", "washy hat"])
+     assert names[0].startswith("open-long-tail"), names
+     assert not any(n.split("-")[-1] in {"long", "tail"} and not n.endswith("long-tail") for n in names)
++
++
++def test_a_drum_word_in_a_phrase_never_names_a_tonal_folder():
++    # SUB's "punchy bass" phrase: its noun drops, and "punchy" is a drum trait, not a bass's
++    cl = [_cluster(tune=37, br=0.3, atk=200.0, dec=2000.0), _cluster(tune=39, br=0.8, atk=10.0)]
++    names = _name("SUB", cl, [[2.0, 0], [0, 2.0]], ["punchy bass", "reese bass"])
++    assert not any(set(n.split("-")) & DRUM_WORDS for n in names), names
++    assert names[1].startswith("reese")
+-- 
+2.55.0
+
