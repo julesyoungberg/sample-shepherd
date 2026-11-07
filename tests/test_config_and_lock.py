@@ -49,6 +49,18 @@ def test_unknown_setting_is_an_error(tmp_path):
         config.load(str(f))
 
 
+@pytest.mark.parametrize("toml, message", [
+    ('[sync]\nprotect = ["/factory"]\n', r"unknown setting \[sync\] protect.*did you mean 'protected'"),
+    ('sync = ["/factory"]\n', r"\[sync\] must be a table"),
+])
+def test_bad_setting_inside_a_section_is_an_error(tmp_path, toml, message):
+    # A silently ignored typo in [sync] would drop protected paths.
+    f = tmp_path / "c.toml"
+    f.write_text(toml)
+    with pytest.raises(ValueError, match=message):
+        config.load(str(f))
+
+
 def test_example_config_parses():
     from pathlib import Path
     cfg = config.load(str(Path(__file__).parents[1] / "examples" / "sample-shepherd.toml"))
