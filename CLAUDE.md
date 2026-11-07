@@ -13,9 +13,18 @@ Notes for Claude (and anyone else) working in this repo.
   why in the PR. Never delete, skip, or loosen a test just to get green.
 - Run `pytest` before you push. It must pass with no device attached.
 
+### Enough tests, not more
+
+Don't over-engineer, here or anywhere: think like a senior engineer and aim for sufficient
+coverage, not maximum. Test the behavior someone relies on and the guards that protect
+their files, not implementation details. Test each behavior once, at the lowest layer that
+can catch it, and don't re-test it at higher layers or in slightly different ways. Higher
+layers cover only what lower ones can't see (wiring between processes, real UI flows). When
+you touch an area, delete or merge tests that have become redundant.
+
 ### Which layer
 
-Put each test in the cheapest layer that can catch the problem. Today only the Python
+Today only the Python
 layers exist; the rest arrive with the desktop app (see `docs/desktop-app-plan.md`,
 "Testing"), and this rule applies to them as soon as they do.
 
