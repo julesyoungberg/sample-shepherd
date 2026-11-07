@@ -69,3 +69,12 @@ def test_parse_human_size():
     assert parse_human_size("1.5KiB") == 1536
     with pytest.raises(ValueError):
         parse_human_size("12 parsecs")
+
+
+def test_lock_is_per_device_not_per_work_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAMPLE_SHEPHERD_LOCK_DIR", str(tmp_path))
+    a = config.Config(work_dir=tmp_path / "a")
+    b = config.Config(work_dir=tmp_path / "b")
+    assert a.lock_file == b.lock_file == tmp_path / "sample-shepherd-elektron-1.lock"
+    b.device_id = "2"
+    assert a.lock_file != b.lock_file

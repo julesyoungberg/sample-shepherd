@@ -4,7 +4,9 @@ Every action is appended to a log CSV as it happens. A rerun with the same log s
 done, so a stopped sync (unplugged cable, closed laptop) just continues.
 
 Deletes run only after every upload in the plan has succeeded (the replacements are on the
-device first), and each delete is checked again against the project-usage list.
+device first), and each delete is checked again, as `plan` checks it: protected paths, paths
+a project uses, and content hashes of samples a project uses. A delete row with no hash is
+refused, since a hand-added row can't be checked for a renamed copy of a used sample.
 """
 from __future__ import annotations
 
@@ -12,7 +14,7 @@ import time
 from pathlib import Path
 
 from sample_shepherd.sync.device import Device, DeviceError
-from sample_shepherd.sync.plan import PlanRow, norm
+from sample_shepherd.sync.plan import Guard, PlanRow, norm
 from sample_shepherd.sync.projects import UsedSample
 from sample_shepherd.util import AppendLog, fmt_bytes, fmt_duration
 
@@ -30,13 +32,13 @@ def _done(log: AppendLog) -> set[tuple[str, str]]:
 
 
 def run_sync(device: Device, rows: list[PlanRow], log_path: Path, used: list[UsedSample] | None,
-             do_delete: bool, out=print, clock=time.monotonic) -> dict[str, int]:
+             do_delete: bool, out=print, clock=time.monotonic, protected=()) -> dict[str, int]:
     uploads = [r for r in rows if r.action == "upload"]
     deletes = [r for r in rows if r.action == "delete"] if do_delete else []
     if deletes and not used:
         raise SyncStopped("deleting needs a non-empty project-usage list (--used)")
-    used_paths = {norm(u.path) for u in used or []}
-    stats = {"uploaded": 0, "deleted": 0, "skipped": 0, "failed": 0, "already_done": 0}
+    guard = Guard(used or [], protected)
+    stats = {"uploaded": 0, "deleted": 0, "skipped": 0, "refused": 0, "failed": 0, "already_done": 0}
 
     with AppendLog(log_path, LOG_HEADER) as log:
         done = _done(log)
@@ -48,21 +50,25 @@ def run_sync(device: Device, rows: list[PlanRow], log_path: Path, used: list[Use
         t0, sent, last = clock(), 0, clock()
 
         def names_in(folder: str) -> set[str]:
+            """Names in a device folder, creating it (and its parents) if it's missing. A
+            folder counts as missing only when its parent's listing lacks it: any other ls
+            failure is an error, never an empty folder (that would skip the overwrite check)."""
             if folder in known:
                 return known[folder]
-            parts, cur = folder.strip("/").split("/") if folder.strip("/") else [], ""
-            for part in parts:
-                cur += "/" + part
-                if cur not in known:
-                    entries = device.ls_if_exists(cur)
-                    if entries is None:
-                        device.mkdir(cur)
-                        entries = []
-                    known[cur] = {e.name for e in entries}
-            if not parts:
+            if "/" not in known:
                 known["/"] = {e.name for e in device.ls("/")}
-                return known["/"]
-            return known[cur]
+            parent = "/"
+            for part in [p for p in folder.strip("/").split("/") if p]:
+                cur = parent.rstrip("/") + "/" + part
+                if cur not in known:
+                    if part in known[parent]:
+                        known[cur] = {e.name for e in device.ls(cur)}
+                    else:
+                        device.mkdir(cur)
+                        known[parent].add(part)
+                        known[cur] = set()
+                parent = cur
+            return known[parent]
 
         for i, r in enumerate(todo, 1):
             folder, _, name = r.device_path.rpartition("/")
@@ -109,9 +115,11 @@ def run_sync(device: Device, rows: list[PlanRow], log_path: Path, used: list[Use
         stats["already_done"] += len(deletes) - len(todo_d)
         out(f"deletes: {len(todo_d)} to do, {len(deletes) - len(todo_d)} already done")
         for r in todo_d:
-            if norm(r.device_path) in used_paths:
-                log.write("delete", r.device_path, "", r.size or "", "", "refused: a project uses it")
-                stats["skipped"] += 1
+            no = guard.refusal(r.device_path, r.hash, need_hash=True)
+            if no:
+                log.write("delete", r.device_path, "", r.size or "", "", f"refused: {no}")
+                out(f"refused delete {r.device_path}: {no}")
+                stats["refused"] += 1
                 continue
             t = clock()
             try:

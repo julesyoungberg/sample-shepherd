@@ -30,3 +30,18 @@ def test_check_render(tmp_path):
     probs = sorted(i.problem for i in issues)
     assert probs == ["24-bit, profile wants 16", "3 files, profile allows 2",
                      "3 folder levels, profile allows 2", "44100 Hz, profile wants 48000"]
+
+
+def test_long_and_clashing_names(tmp_path):
+    from sample_shepherd.export.check import default_name_limit
+    prof = profiles.resolve("digitakt_2_50_3", profiles.search_dirs())
+    assert default_name_limit(prof) == 32
+    assert default_name_limit(profiles.resolve("generic_folder_3", profiles.search_dirs())) is None
+    long = "A" * 32
+    make_wav(tmp_path / "r" / "K" / f"{long}-one.wav")
+    make_wav(tmp_path / "r" / "K" / f"{long}-two.wav")
+    make_wav(tmp_path / "r" / "K" / "short.wav")
+    _, issues = check_render(tmp_path / "r", prof, max_name_length=32)
+    probs = sorted(i.problem for i in issues)
+    assert probs == [f"name is 36 characters; the device keeps 32", "name is 36 characters; the device keeps 32",
+                     f"same first 32 characters as {long}-one.wav"]

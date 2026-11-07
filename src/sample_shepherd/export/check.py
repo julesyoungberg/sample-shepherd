@@ -39,7 +39,15 @@ def wav_format(path: Path) -> tuple[int, int] | None:
         return None
 
 
-def check_render(root: Path, prof: Profile, max_issues: int = 10_000) -> tuple[dict[str, int], list[Issue]]:
+# Elektron devices keep sample names to 32 characters (ELEKTRON_NAME_MAX_LEN in Elektroid).
+ELEKTRON_NAME_MAX = 32
+
+
+def default_name_limit(prof: Profile) -> int | None:
+    return ELEKTRON_NAME_MAX if any(p.startswith(("digitakt", "rytm", "model_samples")) for p in prof.chain) else None
+
+
+def check_render(root: Path, prof: Profile, max_issues: int = 10_000, max_name_length: int | None = None) -> tuple[dict[str, int], list[Issue]]:
     root = Path(root)
     issues: list[Issue] = []
     stats = {"files": 0, "folders": 0, "wav_checked": 0}
@@ -55,6 +63,17 @@ def check_render(root: Path, prof: Profile, max_issues: int = 10_000) -> tuple[d
             issues.append(Issue(rel.as_posix(), f"{depth} folder levels, profile allows {prof.folder_depth}"))
         if prof.files_per_folder and len(audio) > prof.files_per_folder:
             issues.append(Issue(rel.as_posix(), f"{len(audio)} files, profile allows {prof.files_per_folder}"))
+        if max_name_length:
+            seen: dict[str, str] = {}
+            for f in sorted(audio):
+                stem = Path(f).stem
+                p = (rel / f).as_posix()
+                if len(stem) > max_name_length:
+                    issues.append(Issue(p, f"name is {len(stem)} characters; the device keeps {max_name_length}"))
+                key = stem[:max_name_length].lower()
+                if key in seen:
+                    issues.append(Issue(p, f"same first {max_name_length} characters as {seen[key]}"))
+                seen.setdefault(key, f)
         for f in audio:
             if not f.lower().endswith(".wav"):
                 continue

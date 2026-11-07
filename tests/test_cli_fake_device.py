@@ -67,7 +67,7 @@ def test_full_flow(run, world, fake_device, tmp_path):
     assert "already backed up" in out and "to back up: 0" in out
 
     code, out = run("projects", "used", "--backups", str(w / "backups"), "--out", str(w / "used.csv"))
-    assert code == 0 and "2 projects use 2 distinct samples" in out
+    assert code == 0 and "2 project files (2 of 2 slots) use 2 distinct samples" in out
 
     code, out = run("plan", "--listing", str(w / "listing.csv"), "--used", str(w / "used.csv"),
                     "--export", str(world), "--folders", "01_KICKS", "--prune", "--out", str(w / "plan.csv"))
@@ -190,3 +190,22 @@ def test_interrupted_backup_is_redone(run, world, fake_device, tmp_path, monkeyp
     assert code == 0 and "to back up: 1" in out
     assert (w / "b" / "slot-0002" / "SONG B.dt2prj").is_file() and not (w / "b" / "slot-0002.part").exists()
     assert [r["slot"] for r in read_csv(w / "b" / "backup-index.csv")] == ["1", "2"]
+
+
+def test_used_refuses_an_incomplete_backup(run, world, fake_device, tmp_path, monkeypatch):
+    w = tmp_path / "work"
+    used = ["projects", "used", "--backups", str(w / "b"), "--out", str(w / "used.csv")]
+    # one slot failed: its half download sits in slot-0002.part
+    monkeypatch.setenv("FAKE_ELEKTROID_FAIL", "SONG B")
+    run("projects", "backup", "--out", str(w / "b"))
+    monkeypatch.delenv("FAKE_ELEKTROID_FAIL")
+    code, out = run(*used)
+    assert code == 2 and "interrupted download: slot-0002.part" in out and "slot 2 (SONG B) has no backup" in out
+    assert not (w / "used.csv").exists()
+    code, out = run(*used, "--allow-partial")
+    assert code == 0 and "1 of 2 slots" in out
+
+    # a folder with no slots.csv (e.g. backups made by hand) can't be shown complete
+    (w / "b" / "slots.csv").unlink()
+    code, out = run(*used)
+    assert code == 2 and "no slots.csv" in out

@@ -31,11 +31,16 @@ Read this before pointing it at a device you care about.
   any of those samples, matched by path or by content hash. With no project list at all, it
   won't delete anything.
 - **One program talks to the device at a time.** Concurrent MIDI access can corrupt a
-  transfer. sample-shepherd holds a lock while it uses the device, but it can't see other
-  programs: close Elektron Transfer and don't run `elektroid-cli` by hand alongside it.
+  transfer. sample-shepherd holds a lock per device (in `$XDG_RUNTIME_DIR` or the temp
+  folder) while it uses it, but it can't see other programs: close Elektron Transfer, and
+  don't run `elektroid-cli` by hand, or the older `scripts/` (which don't take the lock),
+  alongside it.
 - **Uploads never overwrite.** A file whose name is already in its device folder is skipped.
 - **Deletes come last.** `sync` deletes only after every upload in the plan has succeeded,
-  and checks each delete against the project list again.
+  and checks each delete again the way `plan` does (protected paths, paths and content
+  hashes projects use), so a hand-edited or stale plan can't slip one through.
+- **An incomplete backup is refused.** `projects used` checks the backup against the slot
+  list `projects backup` saved, so a missing project can't make its samples look deletable.
 - **Your source library is read-only input.** Nothing here writes to it.
 - **No audio goes in this repository.** `.gitignore` excludes wav/mp3/aif/flac; tests make
   their own tiny silent files at run time.
@@ -148,12 +153,12 @@ Transfers are slow (about 77 KB/s plus 1.6 s per file on a Digitakt II), so `pla
 | `organize install-fourier --dir D [--dry-run]` | Clones Fourier at the base commit, applies the patches, `uv sync` | `D` |
 | `export profiles` | Lists device profiles | nothing |
 | `export render PROFILE [--from M] [--out O] [--dry-run]` | Runs `fourier render` with our profiles | `O` |
-| `export check RENDER --profile P` | Checks files per folder, folder depth, sample rate and bit depth | nothing |
+| `export check RENDER --profile P` | Checks files per folder, folder depth, sample rate, bit depth, and (Elektron) names over 32 characters | nothing |
 | `device ls` / `device info` | Connected devices / a device's filesystems | reads the device |
 | `device listing --out CSV [--dry-run]` | Lists the sample storage: `path,size,hash` | reads the device |
 | `projects ls` | Lists project slots | reads the device |
 | `projects backup [--out DIR] [--slots ...] [--dry-run]` | Downloads projects, one folder per slot, plus `backup-index.csv` with SHA-256s | reads the device; writes `DIR` |
-| `projects used --backups DIR --out CSV` | Samples the backed-up projects use: `path,size,hash,projects` | `CSV` |
+| `projects used --backups DIR --out CSV [--allow-partial]` | Samples the backed-up projects use: `path,size,hash,projects`. Refuses a backup missing any slot | `CSV` |
 | `plan ... --out CSV [--dry-run]` | Upload/delete plan (see below) | `CSV` |
 | `sync --plan CSV [--used CSV] [--yes] [--no-delete] [--dry-run]` | Carries out a plan, logging each step to `<plan>-log.csv` | **the device** |
 
@@ -167,8 +172,10 @@ Transfers are slow (about 77 KB/s plus 1.6 s per file on a Digitakt II), so `pla
   for example from your own matching).
 - A candidate is **kept** if a project uses it (same path, ignoring case, or the same content
   hash), or if it's under a protected path (`[sync] protected`, `/factory` by default).
-- Every row is in the CSV with its reason: `upload`, `delete`, `skip-exists`, `keep-used`,
-  `keep-protected`, `skip-missing`.
+- Every row is in the CSV with its reason (and, for delete candidates, the device's content
+  hash): `upload`, `delete`, `skip-exists`, `keep-used`, `keep-protected`, `skip-missing`.
+  You can delete rows before syncing. A delete row you add by hand needs its `hash` from the
+  listing, or `sync` refuses it.
 
 ## Supported devices
 

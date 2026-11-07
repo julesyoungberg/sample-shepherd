@@ -56,3 +56,8 @@ def calls(root: Path) -> list[str]:
 @pytest.fixture(autouse=True)
 def no_retry_sleep(monkeypatch):
     monkeypatch.setattr("sample_shepherd.sync.elektron.time.sleep", lambda s: None)
+
+
+@pytest.fixture(autouse=True)
+def private_lock_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAMPLE_SHEPHERD_LOCK_DIR", str(tmp_path / "locks"))

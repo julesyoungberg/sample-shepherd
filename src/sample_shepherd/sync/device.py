@@ -57,13 +57,6 @@ class Device(ABC):
     def ls(self, path: str) -> list[Entry]:
         """List one folder of the sample storage. Raises DeviceError if it doesn't exist."""
 
-    def ls_if_exists(self, path: str) -> list[Entry] | None:
-        """ls, or None when the folder doesn't exist (a backend may skip retries here)."""
-        try:
-            return self.ls(path)
-        except DeviceError:
-            return None
-
     @abstractmethod
     def mkdir(self, path: str) -> None:
         """Create a folder (and its parents) on the sample storage."""

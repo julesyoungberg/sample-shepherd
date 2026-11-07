@@ -55,3 +55,11 @@ def test_used_samples_across_projects(tmp_path):
 
 def test_slot_folder():
     assert projects.slot_folder("7") == "slot-0007"
+
+
+def test_entry_without_file_name(tmp_path):
+    f = make_project(tmp_path / "a.dt2prj", [{"FileSize": 10, "Hash": 3735928559}])
+    assert projects.read_manifest(f) == [projects.UsedSample("", 10, "deadbeef")]   # still protects by hash
+    f = make_project(tmp_path / "b.dt2prj", [{"FileSize": 10}])
+    with pytest.raises(ValueError, match="neither FileName nor Hash"):
+        projects.read_manifest(f)

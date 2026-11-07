@@ -23,7 +23,7 @@ USED_HEADER = ["path", "size", "hash", "projects"]
 
 @dataclass(frozen=True)
 class UsedSample:
-    path: str      # device path as `drive ls` writes it: from the root, no extension
+    path: str      # device path as `device listing` writes it (from the root, no extension); "" if unknown
     size: int | None
     hash: str | None   # 8 lowercase hex digits, as elektroid-cli lists it
 
@@ -77,12 +77,11 @@ def read_manifest(project_file: Path) -> list[UsedSample]:
                          f"project packages don't say which samples they use")
     out = []
     for s in samples:
-        fn = _get(s, "FileName")
-        if not fn:
-            continue
-        size = _get(s, "FileSize")
-        out.append(UsedSample(device_path(fn), int(size) if size not in (None, "") else None,
-                              hash_hex(_get(s, "Hash"))))
+        fn, size, h = _get(s, "FileName"), _get(s, "FileSize"), hash_hex(_get(s, "Hash"))
+        if not fn and not h:
+            # a used sample we can't identify must not shrink the protected set
+            raise ValueError(f"{project_file}: a manifest sample has neither FileName nor Hash: {s!r}")
+        out.append(UsedSample(device_path(fn) if fn else "", int(size) if size not in (None, "") else None, h))
     return out
 
 
@@ -101,6 +100,34 @@ def used_samples(backup_dir: Path, suffixes: tuple[str, ...] = PROJECT_SUFFIXES)
         for s in read_manifest(f):
             used[s].append(label)
     return dict(used), files
+
+
+SLOTS_FILE = "slots.csv"       # every project slot the device listed at backup time
+SLOTS_HEADER = ["slot", "name", "size"]
+
+
+def completeness(backup_dir: Path, suffixes: tuple[str, ...] = PROJECT_SUFFIXES) -> tuple[int, int | None, list[str]]:
+    """(slots with a project file, slots the device listed or None if unknown, problems).
+
+    An incomplete backup gives an incomplete list of used samples, and then a missing
+    project's samples look deletable, so `projects used` refuses one unless told otherwise."""
+    from sample_shepherd.util import read_csv
+    backup_dir = Path(backup_dir)
+    problems = [f"interrupted download: {p.name}" for p in sorted(backup_dir.glob("*.part"))]
+    idx = backup_dir / SLOTS_FILE
+    if not idx.exists():
+        problems.append(f"no {SLOTS_FILE}, so there's no way to tell whether every project is here "
+                        f"(`projects backup` writes it)")
+        return 0, None, problems
+    slots = read_csv(idx)
+    found = 0
+    for r in slots:
+        d = backup_dir / slot_folder(r["slot"])
+        if d.is_dir() and any(p.suffix.lower() in suffixes for p in d.iterdir()):
+            found += 1
+        else:
+            problems.append(f"slot {r['slot']} ({r['name']}) has no backup")
+    return found, len(slots), problems
 
 
 def used_rows(used: dict[UsedSample, list[str]]) -> list[list]:

@@ -146,7 +146,8 @@ def cmd_export_check(cfg, a) -> int:
     prof = profiles.resolve(a.profile, profiles.search_dirs(cfg))
     _out(f"profile {prof.id} ({' -> '.join(prof.chain)}): depth {prof.folder_depth}, "
          f"{prof.files_per_folder or 'any number of'} files a folder, {prof.sample_rate} Hz, {prof.bit_depth}-bit")
-    stats, issues = check.check_render(Path(a.render), prof)
+    limit = a.max_name_length if a.max_name_length is not None else check.default_name_limit(prof)
+    stats, issues = check.check_render(Path(a.render), prof, max_name_length=limit or None)
     _out(f"{stats['files']} files in {stats['folders']} folders, {stats['wav_checked']} WAV headers read")
     for i in issues[: a.show]:
         _out(f"  {i.path}: {i.problem}")
@@ -217,6 +218,10 @@ def cmd_projects_backup(cfg, a) -> int:
     out = Path(a.out) if a.out else cfg.work_dir / "backups" / dt.date.today().isoformat()
     with device_lock(cfg.lock_file):
         slots = [s for s in dev.list_projects() if s.valid or s.size]
+        if not a.dry_run and not a.slots:
+            # every slot the device has, so `projects used` can tell a complete backup
+            write_csv(out / projects.SLOTS_FILE, projects.SLOTS_HEADER,
+                      ([s.slot, s.name, "" if s.size is None else s.size] for s in slots))
         if a.slots:
             slots = [s for s in slots if s.slot in set(a.slots)]
         todo = [s for s in slots if not (out / projects.slot_folder(s.slot)).is_dir()]
@@ -264,7 +269,15 @@ def cmd_projects_used(cfg, a) -> int:
         raise UserError(str(e)) from None
     if not files:
         raise UserError(f"no project backups found under {a.backups}")
-    _out(f"{len(files)} projects use {len(used)} distinct samples")
+    found, expected, problems = projects.completeness(Path(a.backups))
+    for p in problems:
+        _out(f"  {p}")
+    if problems and not a.allow_partial:
+        raise UserError("this backup may not hold every project, and samples only a missing project "
+                        "uses would look deletable. Finish the backup (`projects backup` again), or "
+                        "pass --allow-partial if you're sure it's complete")
+    slots = f"{found} of {expected} slots" if expected is not None else "slot count unknown"
+    _out(f"{len(files)} project files ({slots}) use {len(used)} distinct samples")
     if a.dry_run:
         _out(f"(dry run: would write {a.out})")
         return 0
@@ -316,7 +329,7 @@ def cmd_sync(cfg, a) -> int:
     log = Path(a.log) if a.log else Path(a.plan).with_name(Path(a.plan).stem + "-log.csv")
     with device_lock(cfg.lock_file):
         try:
-            stats = run.run_sync(_device(cfg), rows, log, used, do_delete, out=_out)
+            stats = run.run_sync(_device(cfg), rows, log, used, do_delete, out=_out, protected=cfg.protected)
         except run.SyncStopped as e:
             raise UserError(str(e)) from None
     _out("done: " + ", ".join(f"{k} {v}" for k, v in stats.items()) + f"  (log: {log})")
@@ -365,6 +378,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("render")
     p.add_argument("--profile", required=True)
     p.add_argument("--show", type=int, default=30, help="issues to print")
+    p.add_argument("--max-name-length", type=int,
+                   help="flag longer sample names (default: 32 for Elektron profiles; 0 turns it off)")
 
     d = sub.add_parser("device", help="connected devices and their sample storage").add_subparsers(dest="sub", required=True)
     add(d, "ls", cmd_device_ls, "list connected devices")
@@ -381,6 +396,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = add(pr, "used", cmd_projects_used, "list the samples the backed-up projects use", dry=True)
     p.add_argument("--backups", required=True, help="folder of project backups")
     p.add_argument("--out", required=True, help="CSV to write: path,size,hash,projects")
+    p.add_argument("--allow-partial", action="store_true",
+                   help="go ahead even if the backup can't be shown to hold every project")
 
     p = add(sub, "plan", cmd_plan, "compare listing, project usage and an export; write upload/delete plan", dry=True)
     p.add_argument("--listing", required=True, help="CSV from `device listing`")

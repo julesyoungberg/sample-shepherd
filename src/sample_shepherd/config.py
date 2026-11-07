@@ -39,7 +39,14 @@ class Config:
 
     @property
     def lock_file(self) -> Path:
-        return self.work_dir / ".sample-shepherd-device.lock"
+        """One lock per device, the same for every sample-shepherd process of this user
+        whatever its working folder or config: $SAMPLE_SHEPHERD_LOCK_DIR, else
+        $XDG_RUNTIME_DIR, else the system temp folder."""
+        import tempfile
+        base = (os.environ.get("SAMPLE_SHEPHERD_LOCK_DIR") or os.environ.get("XDG_RUNTIME_DIR")
+                or tempfile.gettempdir())
+        dev = "".join(c if c.isalnum() or c in "-_" else "_" for c in self.device_id)
+        return Path(base) / f"sample-shepherd-{self.device_backend}-{dev}.lock"
 
 
 def find_config_file(explicit: str | None = None) -> Path | None:

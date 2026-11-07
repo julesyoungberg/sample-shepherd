@@ -21,7 +21,7 @@ from sample_shepherd.sync.listing import Listed
 from sample_shepherd.sync.projects import UsedSample
 from sample_shepherd.util import read_csv, write_csv
 
-HEADER = ["action", "device_path", "local_path", "size", "reason"]
+HEADER = ["action", "device_path", "local_path", "size", "reason", "hash"]
 AUDIO = (".wav", ".aif", ".aiff", ".flac")
 ACTIONS = ("upload", "delete")
 
@@ -33,9 +33,11 @@ class PlanRow:
     local_path: str = ""
     size: int | None = None
     reason: str = ""
+    hash: str = ""     # the device's content hash from the listing (delete/keep rows)
 
     def as_list(self) -> list:
-        return [self.action, self.device_path, self.local_path, "" if self.size is None else self.size, self.reason]
+        return [self.action, self.device_path, self.local_path, "" if self.size is None else self.size,
+                self.reason, self.hash]
 
 
 class PlanError(ValueError):
@@ -48,6 +50,32 @@ def norm(path: str) -> str:
 
 def join(dest: str, rel: str) -> str:
     return "/" + "/".join(p for p in (dest.strip("/"), rel.strip("/")) if p)
+
+
+class Guard:
+    """Why a delete must not happen, checked at plan time and again before each delete at
+    sync time (a plan CSV can be hand-edited or stale): a protected path, a path a project
+    uses, or the content hash of a sample a project uses (a renamed or moved copy)."""
+
+    def __init__(self, used: list[UsedSample], protected=()):
+        self.paths = {norm(u.path) for u in used if u.path}
+        self.hashes = {u.hash.lower() for u in used if u.hash}
+        self.protected = [norm(p).rstrip("/") for p in protected]
+
+    def protected_path(self, path: str) -> bool:
+        key = norm(path)
+        return any(key == pp or key.startswith(pp + "/") for pp in self.protected)
+
+    def refusal(self, path: str, hash: str | None, need_hash: bool = False) -> str | None:
+        if self.protected_path(path):
+            return "protected path"
+        if norm(path) in self.paths:
+            return "a project uses it"
+        if hash and hash.lower() in self.hashes:
+            return "same content hash as a sample a project uses"
+        if need_hash and not hash:
+            return "no content hash to check against the projects' samples (make the plan again)"
+        return None
 
 
 def export_files(render: Path, folders: list[str] | None) -> list[tuple[Path, str]]:
@@ -108,22 +136,19 @@ def make_plan(listing: list[Listed], used: list[UsedSample] | None, render: Path
         if not used:
             raise PlanError("the project-usage list is empty. That would make every sample look "
                             "deletable, so it's refused. Check the backups it was made from")
-        used_paths = {norm(u.path) for u in used}
-        used_hashes = {u.hash for u in used if u.hash}
-        prot = [norm(p) for p in protected]
+        guard = Guard(used, protected)
         for path, why in sorted(candidates.items()):
-            key = norm(path)
-            r = on_device.get(key)
-            if any(key == pp or key.startswith(pp.rstrip("/") + "/") for pp in prot):
-                rows.append(PlanRow("keep-protected", path, "", r.size if r else None, "protected path"))
-            elif key in used_paths:
-                rows.append(PlanRow("keep-used", path, "", r.size if r else None, "a project uses it"))
+            r = on_device.get(norm(path))
+            size, h = (r.size, r.hash or "") if r else (None, "")
+            no = guard.refusal(path, h)
+            if no == "protected path":
+                rows.append(PlanRow("keep-protected", path, "", size, no, h))
+            elif no:
+                rows.append(PlanRow("keep-used", path, "", size, no, h))
             elif r is None:
                 rows.append(PlanRow("skip-missing", path, "", None, "not in the device listing"))
-            elif r.hash and r.hash in used_hashes:
-                rows.append(PlanRow("keep-used", path, "", r.size, "same content hash as a sample a project uses"))
             else:
-                rows.append(PlanRow("delete", r.path, "", r.size, why))
+                rows.append(PlanRow("delete", r.path, "", r.size, why, h))
     return rows
 
 
@@ -156,7 +181,8 @@ def load_plan(path: Path) -> list[PlanRow]:
     rows = []
     for r in read_csv(path):
         rows.append(PlanRow(r["action"], r["device_path"], r.get("local_path", ""),
-                            int(r["size"]) if r.get("size") else None, r.get("reason", "")))
+                            int(r["size"]) if r.get("size") else None, r.get("reason", ""),
+                            (r.get("hash") or "").lower()))
     return rows
 
 

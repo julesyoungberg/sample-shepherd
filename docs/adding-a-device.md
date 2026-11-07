@@ -14,7 +14,6 @@ class Device(ABC):
     def list_devices(self) -> list[DeviceInfo]: ...
     def info(self) -> dict: ...                       # optional: {"filesystems": [...]}
     def ls(self, path) -> list[Entry]: ...            # one folder; DeviceError if missing
-    def ls_if_exists(self, path): ...                 # optional: ls or None, no retries
     def mkdir(self, path) -> None: ...                # with parents
     def upload(self, local, dest_dir) -> None: ...    # must never overwrite
     def delete(self, path) -> None: ...

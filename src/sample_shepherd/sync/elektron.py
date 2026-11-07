@@ -132,12 +132,6 @@ class ElektronDevice(Device):
     def ls(self, path: str) -> list[Entry]:
         return parse_sample_ls(self._run(f"elektron:{self.sample_fs}:ls", self._p(path)))
 
-    def ls_if_exists(self, path: str) -> list[Entry] | None:
-        try:
-            return parse_sample_ls(self._run(f"elektron:{self.sample_fs}:ls", self._p(path), tries=1))
-        except DeviceError:
-            return None
-
     def mkdir(self, path: str) -> None:
         self._run(f"elektron:{self.sample_fs}:mkdir", self._p(path))
 
