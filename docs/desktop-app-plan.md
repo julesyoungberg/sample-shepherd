@@ -40,7 +40,7 @@ dependencies were installed.
 |---|---|---|
 | Tauri 2 | Electron | ~10 MB shell instead of ~150 MB; sidecars and scoped permissions are built in. Webview differences (WebKit on macOS and Linux, WebView2 on Windows) are the cost, so we test on all three |
 | Svelte 5 | React | Fewer lines per screen, reactivity without hooks rules, scoped CSS. Jules's preference for less code wins |
-| Svelte 5 | SolidJS | Solid is just as lean (its fine-grained signals are what Svelte 5's runes were modeled on) and Jules likes its look. But its ecosystem is smaller: no headless kit as complete as Bits UI, thinner TanStack adapters, fewer Tauri examples. Svelte gets the same small code with more off-the-shelf pieces |
+| Svelte 5 | SolidJS | Solid is just as lean (its fine-grained signals are what Svelte 5's runes were modeled on) and Jules likes its look. It has good headless kits (Kobalte, Ark UI) and official TanStack adapters, but a smaller ecosystem overall and fewer Tauri examples. Svelte gets the same small code with more off-the-shelf pieces |
 | SvelteKit SPA | plain Vite + Svelte | File-based routes for ~8 screens, and it's Tauri's documented path. No server rendering |
 | Tailwind v4 + tokens | CSS-in-JS, a UI kit | Tokens in one `@theme` block make the identity enforceable. Utilities keep components short |
 | Bits UI | Melt UI, writing our own | Headless, Svelte 5 native, handles focus and keyboard and ARIA for us |
@@ -117,7 +117,8 @@ to stdout and nothing else (human text goes to stderr):
   --stdio` (JSON-RPC over stdin and stdout) for read-only queries only; writes and device
   commands stay one-shot.
 - **Cancel is cooperative.** The app writes `{"type":"stop"}` to the sidecar's stdin.
-  `sync` checks for it between files, finishes the current transfer (so `elektroid-cli`
+  A reader thread in the CLI watches stdin (`sync` blocks inside `subprocess.run` during
+  a transfer), and `sync` checks the flag between files, finishes the current transfer (so `elektroid-cli`
   is never killed mid-file, which could leave a partial file on the device), logs it, and
   exits through the existing "stopped, rerun to resume" path. This works the same on every
   OS, unlike signals: Windows has no SIGINT for a GUI app's child, and a signal to the
