@@ -196,3 +196,48 @@ Carry out a plan on the device (resumable).
 | `--log LOG` | log CSV (default: &lt;plan&gt;-log.csv); a rerun skips what it lists as done |
 | `--yes` | go ahead with the plan's deletes |
 | `--no-delete` | only upload |
+
+## `eval`
+
+Measure category sorting against hand-labeled samples.
+
+### `eval categories`
+
+Score baselines and real systems (e.g. a Fourier manifest) on a label set (reads only).
+
+| Argument | Description |
+|---|---|
+| `--dry-run` | show what would happen; change nothing |
+| `--labels LABELS` | label CSV: path,category,provenance,note (default: the bundled seed set) |
+| `--predictions FILE ...` | a system's output: a Fourier master folder or manifest.json, or a path,category CSV |
+| `--baselines NAME ...` | baselines to run: majority name folder rules (default: all; none: --baselines) |
+| `--provenance PROVENANCE ...` | only labels from these sources (e.g. listened rated-keep) |
+| `--detail DETAIL` | system to break down by category (default: the last one) |
+| `--show SHOW` | errors to print (default `20`) |
+| `--json JSON` | also write the full results here |
+| `--fail-under SYSTEM=ACC ...` | exit 1 if a system's accuracy is below this, e.g. rules=0.8 (for CI) |
+
+### `eval import-ratings`
+
+Add labels from your Fourier ratings (ratings.json or a review CSV): Keep and Misfiled rows.
+
+| Argument | Description |
+|---|---|
+| `--dry-run` | show what would happen; change nothing |
+| `ratings` | $FOURIER_HOME/ratings.json, or a path,rating,category CSV |
+| `--labels LABELS` | label CSV to add to (created if missing) (required) |
+| `--root ROOT` | the library root the rated paths start with (they're stored relative to it) |
+| `--show SHOW` | skipped rows to print (default `10`) |
+
+### `eval sample`
+
+Write a labeling sheet: random samples from each category of a master, category left blank.
+
+| Argument | Description |
+|---|---|
+| `--dry-run` | show what would happen; change nothing |
+| `manifest` | a Fourier master folder or its manifest.json (read only) |
+| `--out OUT` | CSV to write; fill in category after listening (required) |
+| `--per-category PER_CATEGORY` | default `10` |
+| `--seed SEED` | default `0` |
+| `--labels LABELS` | already-labeled paths to leave out (default: the bundled seed set) |

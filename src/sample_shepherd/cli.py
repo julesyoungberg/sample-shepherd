@@ -7,6 +7,7 @@
   sample-shepherd plan       listing + used + export -> plan CSV
   sample-shepherd sync       carry out a plan (resumable)
   sample-shepherd config     show | init
+  sample-shepherd eval       categories | import-ratings | sample
 
 Every command that writes files or touches a device takes --dry-run. Commands that delete
 print the plan and need --yes.
@@ -371,6 +372,96 @@ def cmd_sync(cfg, a) -> int:
     return 1 if stats["failed"] else 0
 
 
+# ----------------------------------------------------------------------------- eval
+
+def _labels_path(a) -> Path:
+    from sample_shepherd.evaluate import labels
+    return Path(a.labels).expanduser() if a.labels else labels.bundled_labels()
+
+
+def _thresholds(specs: list[str] | None) -> dict[str, float]:
+    out = {}
+    for s in specs or []:
+        name, sep, val = s.partition("=")
+        try:
+            out[name] = float(val)
+        except ValueError:
+            sep = ""
+        if not sep or not name:
+            raise UserError(f"--fail-under takes SYSTEM=ACCURACY, e.g. rules=0.8 (got {s!r})")
+    return out
+
+
+def cmd_eval_categories(cfg, a) -> int:
+    from sample_shepherd.evaluate import labels as lab_mod, report
+    path = _labels_path(a)
+    labs = lab_mod.load_labels(path)
+    if a.provenance:
+        labs = [x for x in labs if x.provenance in a.provenance]
+    if not labs:
+        raise UserError(f"no labels to evaluate in {path}" + (f" with provenance {a.provenance}" if a.provenance else ""))
+    floors = _thresholds(a.fail_under)
+    results = report.run(labs, a.baselines if a.baselines is not None else list(report.BASELINES),
+                         [Path(p).expanduser() for p in a.predictions or []])
+    _out(f"label file: {path}")
+    _out(report.format_report(labs, results, a.detail, a.show))
+    if a.json:
+        if a.dry_run:
+            _out(f"(dry run: would write {a.json})")
+        else:
+            Path(a.json).expanduser().parent.mkdir(parents=True, exist_ok=True)
+            Path(a.json).expanduser().write_text(report.results_json(labs, results), encoding="utf-8")
+            _out(f"wrote {a.json}")
+    failed = []
+    for name, floor in floors.items():
+        r = next((r for r in results if r.system == name), None)
+        if r is None:
+            raise UserError(f"--fail-under names {name!r}, which wasn't evaluated")
+        if r.accuracy < floor:
+            failed.append(f"{name} accuracy {r.accuracy:.2f} < {floor:.2f}")
+    if failed:
+        _err("below the floor: " + "; ".join(failed))
+        return 1
+    return 0
+
+
+def cmd_eval_import(cfg, a) -> int:
+    from sample_shepherd.evaluate import labels as lab_mod
+    target = Path(a.labels).expanduser()
+    new, skipped = lab_mod.labels_from_ratings(Path(a.ratings).expanduser(), a.root)
+    existing = lab_mod.load_labels(target) if target.exists() else []
+    merged, added, changed, confirmed = lab_mod.merge(existing, new)
+    _out(f"{len(new)} labels from {a.ratings}: {added} new, {changed} relabeled and {confirmed} confirmed "
+         f"by a human rating, {len(new) - added - changed - confirmed} already there; {len(skipped)} rows skipped")
+    for s in skipped[:a.show]:
+        _out(f"  skipped {s}")
+    if len(skipped) > a.show:
+        _out(f"  ... and {len(skipped) - a.show} more")
+    if a.dry_run:
+        _out(f"(dry run: would write {len(merged)} labels to {target})")
+        return 0
+    lab_mod.write_labels(target, merged)
+    _out(f"wrote {target} ({len(merged)} labels)")
+    return 0
+
+
+def cmd_eval_sample(cfg, a) -> int:
+    from sample_shepherd.evaluate import labels as lab_mod, report
+    known = _labels_path(a)
+    exclude = lab_mod.load_labels(known) if known.exists() else []
+    rows = report.sample_sheet(Path(a.manifest).expanduser(), a.per_category, a.seed, exclude)
+    out = Path(a.out).expanduser()
+    if out.exists():
+        raise UserError(f"{out} already exists; it may hold your labels. Choose another --out")
+    _out(f"{len(rows)} samples to label ({a.per_category} per category at most, seed {a.seed})")
+    if a.dry_run:
+        _out(f"(dry run: would write {out})")
+        return 0
+    write_csv(out, ["path", "category", "provenance", "note"], [[r[k] for k in ("path", "category", "provenance", "note")] for r in rows])
+    _out(f"wrote {out}. Listen to each, fill in category, then: sample-shepherd eval categories --labels {out}")
+    return 0
+
+
 # ----------------------------------------------------------------------------- parser
 
 def build_parser() -> argparse.ArgumentParser:
@@ -452,6 +543,34 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--log", help="log CSV (default: <plan>-log.csv); a rerun skips what it lists as done")
     p.add_argument("--yes", action="store_true", help="go ahead with the plan's deletes")
     p.add_argument("--no-delete", action="store_true", help="only upload")
+
+    ev = sub.add_parser("eval", help="measure category sorting against hand-labeled samples").add_subparsers(dest="sub", required=True)
+    p = add(ev, "categories", cmd_eval_categories,
+            "score baselines and real systems (e.g. a Fourier manifest) on a label set (reads only)", dry=True)
+    p.add_argument("--labels", help="label CSV: path,category,provenance,note (default: the bundled seed set)")
+    p.add_argument("--predictions", nargs="+", metavar="FILE",
+                   help="a system's output: a Fourier master folder or manifest.json, or a path,category CSV")
+    p.add_argument("--baselines", nargs="*", metavar="NAME",
+                   help="baselines to run: majority name folder rules (default: all; none: --baselines)")
+    p.add_argument("--provenance", nargs="+", help="only labels from these sources (e.g. listened rated-keep)")
+    p.add_argument("--detail", help="system to break down by category (default: the last one)")
+    p.add_argument("--show", type=int, default=20, help="errors to print")
+    p.add_argument("--json", help="also write the full results here")
+    p.add_argument("--fail-under", nargs="+", metavar="SYSTEM=ACC",
+                   help="exit 1 if a system's accuracy is below this, e.g. rules=0.8 (for CI)")
+    p = add(ev, "import-ratings", cmd_eval_import,
+            "add labels from your Fourier ratings (ratings.json or a review CSV): Keep and Misfiled rows", dry=True)
+    p.add_argument("ratings", help="$FOURIER_HOME/ratings.json, or a path,rating,category CSV")
+    p.add_argument("--labels", required=True, help="label CSV to add to (created if missing)")
+    p.add_argument("--root", help="the library root the rated paths start with (they're stored relative to it)")
+    p.add_argument("--show", type=int, default=10, help="skipped rows to print")
+    p = add(ev, "sample", cmd_eval_sample,
+            "write a labeling sheet: random samples from each category of a master, category left blank", dry=True)
+    p.add_argument("manifest", help="a Fourier master folder or its manifest.json (read only)")
+    p.add_argument("--out", required=True, help="CSV to write; fill in category after listening")
+    p.add_argument("--per-category", type=int, default=10)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--labels", help="already-labeled paths to leave out (default: the bundled seed set)")
     return ap
 
 
