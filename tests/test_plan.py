@@ -72,3 +72,22 @@ def test_summary_estimates_time(render):
     rows = make_plan([], None, render)
     text = summarize(rows, Transfer(bytes_per_second=1000, seconds_per_call=1))
     assert "upload 3 files" in text and "estimated time" in text
+
+
+def test_sectioned_render_with_nested_folders(tmp_path):
+    """A four-level render (SECTION/CATEGORY/...): --folders names a category under its
+    section, and --prune stays inside that category, never the whole section."""
+    r = tmp_path / "render4"
+    make_wav(r / "DRUMS" / "01_KICKS" / "hard" / "BD 01.wav")
+    make_wav(r / "DRUMS" / "02_SNARES" / "SD 01.wav")
+    listing = [
+        Listed("/DRUMS/01_KICKS/hard/OLD KICK", 1000, "00000011"),
+        Listed("/DRUMS/03_CLAPS/CP 01", 1000, "00000012"),   # same section, not named
+    ]
+    rows = make_plan(listing, USED, r, folders=["DRUMS/01_KICKS"], prune=True)
+    a = by_action(rows)
+    assert a["upload"] == ["/DRUMS/01_KICKS/hard/BD 01"]
+    assert a["delete"] == ["/DRUMS/01_KICKS/hard/OLD KICK"]
+    assert "/DRUMS/03_CLAPS/CP 01" not in sum(a.values(), [])
+    with pytest.raises(PlanError):
+        make_plan([], None, r, folders=["01_KICKS"])

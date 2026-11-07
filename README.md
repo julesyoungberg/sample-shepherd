@@ -186,9 +186,15 @@ List what's on the device (read-only), then compare it with the render and the p
 ```bash
 sample-shepherd device listing --out listing.csv
 sample-shepherd plan --listing listing.csv --used used.csv \
-    --export ~/sample-shepherd/renders/digitakt --folders 01_KICKS 02_SNARES \
+    --export ~/sample-shepherd/renders/digitakt --folders DRUMS/01_KICKS DRUMS/02_SNARES \
     --prune --out plan.csv
 ```
+
+Name category folders under their section (`DRUMS/01_KICKS`), not a whole section: with
+`--prune`, the folders you name are the delete scope, and `--folders DRUMS` would make all of
+`/DRUMS` on the device fair game. If you already keep your own folders called `DRUMS`, `FX`,
+`LOOPS`, `TONAL` or `VOX` (names match ignoring case), always pass `--folders` with `--prune`,
+or render to a three-level profile.
 
 Without `--prune` (or `--replace`) the plan only uploads. Read `plan.csv`: every row says
 what will happen and why. Delete a row and it won't happen.

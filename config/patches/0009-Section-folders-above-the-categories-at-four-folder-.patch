@@ -1,4 +1,4 @@
-From 3bc083a640d595d6d59e603067ea2bf1f4922e8e Mon Sep 17 00:00:00 2001
+From fa080e896c621e62001fd25aab7bbcdcf862c705 Mon Sep 17 00:00:00 2001
 From: Jules Youngberg <julesdayoungberg@gmail.com>
 Date: Sat, 7 Nov 2026 00:37:37 -0700
 Subject: [PATCH] Section folders above the categories at four folder levels
@@ -9,8 +9,8 @@ Subject: [PATCH] Section folders above the categories at four folder levels
  src/fourier/packs/curate_config.py | 20 +++++++++++
  src/fourier/packs/render.py        | 10 ++++--
  tests/data/tunables_snapshot.json  | 53 ++++++++++++++++++++++++++++++
- tests/test_render_sections.py      | 23 +++++++++++++
- 5 files changed, 105 insertions(+), 2 deletions(-)
+ tests/test_render_sections.py      | 35 ++++++++++++++++++++
+ 5 files changed, 117 insertions(+), 2 deletions(-)
  create mode 100644 tests/test_render_sections.py
 
 diff --git a/config/tunables.yaml b/config/tunables.yaml
@@ -154,10 +154,10 @@ index caf9ebf..370e1d4 100644
 \ No newline at end of file
 diff --git a/tests/test_render_sections.py b/tests/test_render_sections.py
 new file mode 100644
-index 0000000..9d62a1e
+index 0000000..9c8216a
 --- /dev/null
 +++ b/tests/test_render_sections.py
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,35 @@
 +"""A fourth folder level puts each category under its section (curate_config.CATEGORY_SECTIONS)."""
 +from pathlib import Path
 +
@@ -181,6 +181,18 @@ index 0000000..9d62a1e
 +    assert len(cats) == len(set(cats))
 +    assert set(CATEGORY_ORDER) | set(DERIVED_DIRS) <= set(cats)
 +    assert category_section("NOT_A_CATEGORY") is None
++
++
++def test_name_rules_apply_to_the_section_folder_too():
++    """With name rules (paths.max_name_length) the section goes through _device_name like
++    the category, and still sits on top."""
++    import dataclasses
++
++    from fourier.devices.loader import DeviceLoader
++    dev = dataclasses.replace(DeviceLoader().load("digitakt_2"), max_name_length=5)
++    rel = _rel_dest("KICKS", "punchy-1", "BD_01", 4, device=dev, group="punchy")
++    assert rel.parts[0] == "DRUMS"
++    assert len(rel.parts) == 5 and all(len(p) <= 5 for p in rel.parts)
 -- 
 2.55.0
 
