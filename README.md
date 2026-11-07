@@ -104,49 +104,121 @@ uv venv && uv pip install -e '.[dev]'
 
 ## Configure
 
-Copy [examples/sample-shepherd.toml](examples/sample-shepherd.toml) to
-`~/.config/sample-shepherd/config.toml` and edit the paths. Every setting is optional, and
-flags override the file (`--config`, `--work-dir`, `--device`, `--elektroid-cli`).
-`sample-shepherd config show` prints what's in effect.
+```bash
+sample-shepherd config init        # writes ~/.config/sample-shepherd/config.toml (--dry-run to preview)
+sample-shepherd config show        # what's in effect
+```
 
-## Quick start: sync a Digitakt II
+Edit the paths in that file: where `elektroid-cli` and `fourier` are, and `work_dir` (where
+backups, listings and plans go by default). Every setting is optional, and flags override the
+file (`--config`, `--work-dir`, `--device`, `--elektroid-cli`). The starter file is
+[examples/sample-shepherd.toml](examples/sample-shepherd.toml);
+[examples/original-build.toml](examples/original-build.toml) is the config the first
+Digitakt II library build used, for a fuller real-world example.
+
+## Walkthrough: from sample packs to a synced Digitakt II
+
+The whole path, one step at a time. Each step's output is the next step's input, and you can
+stop after any of them: steps 1 and 2 alone give you a curated library for Live or XO.
+
+### 1. Organize: curate your sample packs
+
+Fourier Samples reads your packs (read-only), classifies and names every sample, drops
+duplicates and weak ones, and writes a curated *master*.
+
+```bash
+sample-shepherd organize install-fourier --dir ~/opt/fourier-samples --dry-run   # the steps
+sample-shepherd organize install-fourier --dir ~/opt/fourier-samples             # patched build
+# then in your config: [fourier] command = "~/opt/fourier-samples/.venv/bin/fourier"
+```
+
+Give Fourier a config: copy [examples/fourier.toml](examples/fourier.toml) (and
+[config/overlay.yaml](config/overlay.yaml) next to it), set `library` to your sample-pack
+folders and `[output]` to where the master and renders go, and point sample-shepherd at it
+with `[fourier] env = { FOURIER_HOME = "...", FOURIER_CONFIG = "/path/to/fourier.toml" }`.
+Or run Fourier's own `fourier setup`, which asks the same questions.
+
+```bash
+sample-shepherd organize doctor              # Fourier found and configured?
+sample-shepherd organize build --dry-run     # what a build would do; writes nothing
+sample-shepherd organize build               # scan, analyze, build and verify (resumable; long the first time)
+```
+
+Fourier's own commands work on the same setup: `fourier open report` to listen and rate,
+`fourier publish` to freeze a release. See its README.
+
+### 2. Export: render the master for each target
+
+```bash
+sample-shepherd export profiles                                     # what's available
+sample-shepherd export render generic_folder_3 --out ~/sample-shepherd/renders/live --dry-run
+sample-shepherd export render generic_folder_3 --out ~/sample-shepherd/renders/live    # Live / XO
+sample-shepherd export render digitakt_2_50_3 --out ~/sample-shepherd/renders/digitakt
+sample-shepherd export check ~/sample-shepherd/renders/digitakt --profile digitakt_2_50_3
+```
+
+`export check` reads the render and reports anything the device would refuse or hide: too
+many files in a folder, folders too deep, the wrong sample rate or bit depth, names too long.
+For Live or XO you're done: add the render folder to Live's browser, or drag it into XO.
+
+### 3. Back up the device's projects
+
+From here on sample-shepherd talks to the device. Close Elektron Transfer first.
 
 ```bash
 sample-shepherd device ls                       # find its number (1 for the first device)
 sample-shepherd device info                     # its filesystems; "sample" means sync works
-
-# 1. Back up every project, one folder per slot (slow: dry run first for the estimate)
-sample-shepherd projects backup --out backups/2026-11-07 --dry-run
-sample-shepherd projects backup --out backups/2026-11-07
-
-# 2. What do the projects use? (reads the backups, not the device)
-sample-shepherd projects used --backups backups/2026-11-07 --out used.csv
-
-# 3. What's on the device? (read-only)
-sample-shepherd device listing --out listing.csv
-
-# 4. Render your library for the device, and check it
-sample-shepherd export render digitakt_2_50_3 --out renders/digitakt
-sample-shepherd export check renders/digitakt --profile digitakt_2_50_3
-
-# 5. Plan: upload what's missing; with --prune, delete what the export no longer has
-sample-shepherd plan --listing listing.csv --used used.csv --export renders/digitakt \
-    --folders 01_KICKS 02_SNARES --prune --out plan.csv
-#    -> read plan.csv. Edit it if you like: remove a row and it won't happen.
-
-# 6. Sync, resumably. Stop it any time; run the same command again to continue.
-sample-shepherd sync --plan plan.csv --dry-run
-sample-shepherd sync --plan plan.csv --used used.csv --yes
+sample-shepherd projects backup --out backups/2026-11-07 --dry-run   # what and how long
+sample-shepherd projects backup --out backups/2026-11-07             # one folder per slot
 ```
 
-Transfers are slow (about 77 KB/s plus 1.6 s per file on a Digitakt II), so `plan` and
-`sync --dry-run` print a time estimate. Set `[transfer]` in the config to your own speeds;
-`sync` prints the measured speed as it goes.
+Copy the backup folder off your computer too. Then list what the projects use. This reads
+the backup, not the device:
+
+```bash
+sample-shepherd projects used --backups backups/2026-11-07 --out used.csv
+```
+
+### 4. Plan
+
+List what's on the device (read-only), then compare it with the render and the projects:
+
+```bash
+sample-shepherd device listing --out listing.csv
+sample-shepherd plan --listing listing.csv --used used.csv \
+    --export ~/sample-shepherd/renders/digitakt --folders 01_KICKS 02_SNARES \
+    --prune --out plan.csv
+```
+
+Without `--prune` (or `--replace`) the plan only uploads. Read `plan.csv`: every row says
+what will happen and why. Delete a row and it won't happen.
+
+### 5. Sync
+
+```bash
+sample-shepherd sync --plan plan.csv --dry-run                  # summary and time estimate
+sample-shepherd sync --plan plan.csv --no-delete                # uploads only
+sample-shepherd sync --plan plan.csv --used used.csv --yes      # uploads, then the deletes
+```
+
+Stop it any time (Ctrl-C, a dropped cable): run the same command again and it carries on
+from its log (`plan-log.csv`). Transfers are slow (about 77 KB/s plus 1.6 s per file on a
+Digitakt II), so `plan` and `sync --dry-run` print a time estimate. Set `[transfer]` in the
+config to your own speeds; `sync` prints the measured speed as it goes.
+
+### Dry runs and the device
+
+`--dry-run` never changes anything. For `device ls`, `device info` and `projects ls` it
+doesn't contact the device either; it prints the `elektroid-cli` command it would run.
+`device listing --dry-run` and `projects backup --dry-run` do read the device (one folder
+listing, the project list) to give you counts and a time estimate, so don't run them while
+another program is transferring.
 
 ## Commands
 
 | Command | What it does | Writes / touches |
 |---|---|---|
+| `config show` / `config init [--path P] [--dry-run]` | Settings in effect / write a starter config | `init`: the config file |
 | `organize doctor` | Is Fourier installed and configured? | nothing |
 | `organize build [--dry-run] [-- args]` | Runs `fourier build` | Fourier's outputs |
 | `organize patches` | Lists our patches to Fourier | nothing |
@@ -154,9 +226,9 @@ Transfers are slow (about 77 KB/s plus 1.6 s per file on a Digitakt II), so `pla
 | `export profiles` | Lists device profiles | nothing |
 | `export render PROFILE [--from M] [--out O] [--dry-run]` | Runs `fourier render` with our profiles | `O` |
 | `export check RENDER --profile P` | Checks files per folder, folder depth, sample rate, bit depth, and (Elektron) names over 32 characters | nothing |
-| `device ls` / `device info` | Connected devices / a device's filesystems | reads the device |
+| `device ls` / `device info` `[--dry-run]` | Connected devices / a device's filesystems | reads the device |
 | `device listing --out CSV [--dry-run]` | Lists the sample storage: `path,size,hash` | reads the device |
-| `projects ls` | Lists project slots | reads the device |
+| `projects ls [--dry-run]` | Lists project slots | reads the device |
 | `projects backup [--out DIR] [--slots ...] [--dry-run]` | Downloads projects, one folder per slot, plus `backup-index.csv` with SHA-256s | reads the device; writes `DIR` |
 | `projects used --backups DIR --out CSV [--allow-partial]` | Samples the backed-up projects use: `path,size,hash,projects`. Refuses a backup missing any slot | `CSV` |
 | `plan ... --out CSV [--dry-run]` | Upload/delete plan (see below) | `CSV` |
@@ -219,7 +291,7 @@ what each does, whether our config needs it, and how it could go upstream.
 src/sample_shepherd/   the package: cli.py, config.py, organize/, export/, sync/
 tests/                 pytest; tests/fake/elektroid-cli stands in for a device
 config/                Fourier config, device profiles, patches, curation decisions
-examples/              an example config file
+examples/              starter configs for sample-shepherd and Fourier
 docs/                  how-tos, and the notes and reports from the original library build
 scripts/               the original one-off scripts (still in use; see below)
 ```

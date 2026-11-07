@@ -1,0 +1,27 @@
+# A Fourier Samples config to start from. `fourier setup` writes one interactively; this is
+# the same thing by hand. Point sample-shepherd at it with
+#   [fourier] env = { FOURIER_CONFIG = "/path/to/this/fourier.toml", ... }
+# Relative paths are read from this file's folder. `fourier config show` prints what it
+# resolves to and `fourier doctor` checks it.
+
+# Folders of sample packs to read (never written). With vendors = "auto", the first folder
+# level under each is a vendor: <library>/<vendor>/<pack>/...
+library = ["~/Music/Sample Packs"]
+
+# Device profiles to render for (`sample-shepherd export profiles` lists them).
+devices = ["generic_folder_3", "digitakt_2_50_3"]
+
+preset = "balanced"   # balanced, ambient-cinematic, breaks-acid, hiphop-lofi, house-techno, trap, or a file
+vendors = "auto"
+fold = "auto"         # half- and double-time loops fold into the style's tempo range ("off" to keep them)
+retune = "off"        # keep every pitch and name
+
+# Folder shaping used by the bundled *_3 profiles. Needs the patched Fourier
+# (`sample-shepherd organize install-fourier`). Copy config/overlay.yaml from the
+# sample-shepherd repository next to this file, or remove this line for stock Fourier.
+overlay = "overlay.yaml"
+
+[output]
+master = "~/sample-shepherd/master"     # the curated library
+renders = "~/sample-shepherd/renders"   # one folder per device profile
+publish = "~/sample-shepherd/publish"

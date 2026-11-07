@@ -6,7 +6,7 @@
   sample-shepherd projects   ls | backup | used
   sample-shepherd plan       listing + used + export -> plan CSV
   sample-shepherd sync       carry out a plan (resumable)
-  sample-shepherd config     show
+  sample-shepherd config     show | init
 
 Every command that writes files or touches a device takes --dry-run. Commands that delete
 print the plan and need --yes.
@@ -58,6 +58,20 @@ def cmd_config_show(cfg, a) -> int:
     _out(f"profile dirs:    {[str(p) for p in cfg.profile_dirs] or '(bundled only)'}")
     _out(f"protected paths: {cfg.protected}")
     _out(f"transfer:        {cfg.transfer.bytes_per_second:.0f} B/s + {cfg.transfer.seconds_per_call} s per call")
+    return 0
+
+
+def cmd_config_init(cfg, a) -> int:
+    target = Path(a.path).expanduser() if a.path else config_mod.user_config_path()
+    if target.exists():
+        raise UserError(f"{target} already exists; edit it, or choose another --path")
+    text = config_mod.example_config().read_text(encoding="utf-8")
+    if a.dry_run:
+        _out(f"(dry run: would write the starter config to {target})")
+        return 0
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(text, encoding="utf-8")
+    _out(f"wrote {target}. Edit its paths, then check them with `sample-shepherd config show`.")
     return 0
 
 
@@ -164,7 +178,18 @@ def _device(cfg):
     return get_backend(cfg)
 
 
+def _dry_device(cfg, a, op: str) -> bool:
+    """For a read-only device command's --dry-run: say what would run, touch nothing."""
+    if not a.dry_run:
+        return False
+    _out(f"would run: {_device(cfg).describe(op)}")
+    _out("(dry run: the device wasn't contacted)")
+    return True
+
+
 def cmd_device_ls(cfg, a) -> int:
+    if _dry_device(cfg, a, "list_devices"):
+        return 0
     with device_lock(cfg.lock_file):
         devs = _device(cfg).list_devices()
     for d in devs:
@@ -175,6 +200,8 @@ def cmd_device_ls(cfg, a) -> int:
 
 
 def cmd_device_info(cfg, a) -> int:
+    if _dry_device(cfg, a, "info"):
+        return 0
     with device_lock(cfg.lock_file):
         info = _device(cfg).info()
     for k, v in info.items():
@@ -204,6 +231,8 @@ def cmd_device_listing(cfg, a) -> int:
 # ----------------------------------------------------------------------------- projects
 
 def cmd_projects_ls(cfg, a) -> int:
+    if _dry_device(cfg, a, "list_projects"):
+        return 0
     with device_lock(cfg.lock_file):
         slots = _device(cfg).list_projects()
     for s in slots:
@@ -357,6 +386,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     c = sub.add_parser("config", help="show the settings in effect").add_subparsers(dest="sub", required=True)
     add(c, "show", cmd_config_show, "print the settings in effect")
+    p = add(c, "init", cmd_config_init, "write a starter config file to edit", dry=True)
+    p.add_argument("--path", help="where to write it (default: ~/.config/sample-shepherd/config.toml)")
 
     o = sub.add_parser("organize", help="curate a library with Fourier Samples").add_subparsers(dest="sub", required=True)
     add(o, "doctor", cmd_organize_doctor, "check that Fourier is installed and configured")
@@ -382,14 +413,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="flag longer sample names (default: 32 for Elektron profiles; 0 turns it off)")
 
     d = sub.add_parser("device", help="connected devices and their sample storage").add_subparsers(dest="sub", required=True)
-    add(d, "ls", cmd_device_ls, "list connected devices")
-    add(d, "info", cmd_device_info, "show the device's filesystems (what it supports)")
+    add(d, "ls", cmd_device_ls, "list connected devices", dry=True)
+    add(d, "info", cmd_device_info, "show the device's filesystems (what it supports)", dry=True)
     p = add(d, "listing", cmd_device_listing, "list the sample storage to CSV (read-only)", dry=True)
     p.add_argument("--out", required=True)
     p.add_argument("--root", default="/")
 
     pr = sub.add_parser("projects", help="project backups and the samples they use").add_subparsers(dest="sub", required=True)
-    add(pr, "ls", cmd_projects_ls, "list projects on the device")
+    add(pr, "ls", cmd_projects_ls, "list projects on the device", dry=True)
     p = add(pr, "backup", cmd_projects_backup, "download every project, one folder per slot", dry=True)
     p.add_argument("--out", help="backup folder (default: <work_dir>/backups/<today>)")
     p.add_argument("--slots", nargs="+", help="only these slots")

@@ -46,6 +46,11 @@ class Device(ABC):
     #: how a sample's name appears on the device: True if the extension is dropped on upload
     strips_extension: bool = True
 
+    def describe(self, op: str) -> str:
+        """How the backend would carry out a read-only `op` ("list_devices", "info",
+        "list_projects"), for --dry-run output. Must not touch the device."""
+        return op
+
     @abstractmethod
     def list_devices(self) -> list[DeviceInfo]: ...
 

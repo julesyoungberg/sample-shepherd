@@ -123,6 +123,11 @@ class ElektronDevice(Device):
     def _p(self, path: str) -> str:
         return f"{self.device}:{path if path.startswith('/') else '/' + path}"
 
+    def describe(self, op: str) -> str:
+        args = {"list_devices": ["ld"], "info": ["info", self.device],
+                "list_projects": [f"elektron:{self.project_fs}:ls", self._p("/")]}.get(op, [op])
+        return " ".join([self.cli, *args])
+
     def list_devices(self) -> list[DeviceInfo]:
         return parse_ld(self._run("ld", tries=1))
 
