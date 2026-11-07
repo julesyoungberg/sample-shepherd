@@ -72,9 +72,12 @@ def cmd_config_init(cfg, a) -> int:
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(text, encoding="utf-8")
     _out(f"wrote {target}. Edit its paths, then check them with `sample-shepherd config show`.")
-    if cfg.path and Path(cfg.path).resolve() != target.resolve():
+    if target.resolve() != config_mod.user_config_path().resolve():
+        _out(f"note: this file isn't looked up by default; pass --config {target} "
+             f"or set ${config_mod.ENV_VAR} to use it")
+    elif cfg.path and Path(cfg.path).resolve() != target.resolve():
         _out(f"note: {cfg.path} is the config in effect here and takes precedence over {target} "
-             f"(lookup order: --config, $SAMPLE_SHEPHERD_CONFIG, ./sample-shepherd.toml, then this file)")
+             f"(lookup order: --config, ${config_mod.ENV_VAR}, ./sample-shepherd.toml, then this file)")
     return 0
 
 

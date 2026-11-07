@@ -235,3 +235,8 @@ def test_config_init_notes_a_config_that_takes_precedence(run, tmp_path):
     (tmp_path / "sample-shepherd.toml").write_text("")          # ./sample-shepherd.toml wins lookup
     code, out = run("config", "init")
     assert code == 0 and "takes precedence" in out
+
+
+def test_config_init_elsewhere_says_how_to_use_it(run, tmp_path):
+    code, out = run("config", "init", "--path", str(tmp_path / "mine.toml"))
+    assert code == 0 and "--config" in out and "SAMPLE_SHEPHERD_CONFIG" in out
