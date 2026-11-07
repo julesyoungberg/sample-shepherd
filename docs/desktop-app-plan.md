@@ -337,9 +337,9 @@ What exists today, extended:
   for any listing, usage list and export, no delete names a used path, a used hash or a
   protected path, and none appears without a usage list. This is the most important test
   in the project, so it lives in exactly one place.
-- **The closed loop, with a fake device.** A stateful fake `elektroid-cli` (a small
-  script keeping a pretend +Drive in a temp folder, printing what the real tool prints)
-  runs a handful of scenarios end to end: backup → used → plan → sync leaves the device
+- **The closed loop, with a fake device.** The stateful fake `elektroid-cli` that
+  already exists in `tests/fake/` (a pretend +Drive in a temp folder, printing what the
+  real tool prints), extended as the app needs new commands or failure modes, runs a handful of scenarios end to end: backup → used → plan → sync leaves the device
   matching the plan; a sync killed halfway resumes without re-uploading; an unsupported
   device says "not available" instead of an empty used list. Only scenarios the unit
   tests can't reach go here.
