@@ -287,83 +287,69 @@ built from the patched source with its LICENSE and NOTICE in the app's resources
 
 ## Testing
 
-The app is AI-written, so tests are how we know it works, not a formality. Five layers,
-cheapest first. Every layer runs in CI without a device, and the first four run on every PR.
+The app is AI-written, so tests are how we know it works. But each risk gets tested
+once, at the cheapest layer that can catch it, and nothing is tested twice in different
+clothes. Three layers, all in CI, none needing a device:
 
-### 1. Unit tests
+| Layer | Owns this risk | Doesn't re-test |
+|---|---|---|
+| pytest | Logic and safety: plan, sync, guards, parsing, `--json` output | UI, process plumbing |
+| Playwright | The UI does the right thing with what the CLI sends; how it looks | Logic the CLI decides |
+| A few small unit tests (Rust, Vitest) | Code with real branching outside Python: cancel, event parsing, viz layout math | Anything above |
 
-- **Python (pytest):** what exists today, plus `--json` event shapes for every command
-  against `events.schema.json`, `library index`, `tools` and `plan edit`. Add
-  property-based tests (Hypothesis) for the plan guards: for any random listing, usage list
-  and export, no delete row ever names a used path, a used hash or a protected path, and
-  no delete appears without a usage list.
-- **Rust (`cargo test`):** event-line parsing, cancel, tool detection and peak
-  computation (against short generated tones, never real audio).
-- **Svelte (Vitest + Testing Library):** components and stores, including the sidecar
-  client with recorded event streams. Pure viz code (scales, layouts, the +Drive cell
-  packing) is tested as plain functions, separate from drawing.
+### pytest: logic, safety and the full loop
 
-### 2. Contract tests
+What exists today, extended:
 
-One JSON Schema is the contract between Python and the UI. pytest checks the CLI emits
-it, and the UI's TypeScript types are generated from it, with a CI step that fails if the
-generated file is stale. A recorded event stream (`app/fixtures/streams/*.jsonl`) is
-captured from the real CLI by a script, so the UI's fixtures can't drift from what Python
-actually sends.
+- **Guards, once, thoroughly.** Property-based tests (Hypothesis) for `plan` and `sync`:
+  for any listing, usage list and export, no delete names a used path, a used hash or a
+  protected path, and none appears without a usage list. This is the most important test
+  in the project, so it lives in exactly one place.
+- **The closed loop, with a fake device.** A stateful fake `elektroid-cli` (a small
+  script keeping a pretend +Drive in a temp folder, printing what the real tool prints)
+  runs a handful of scenarios end to end: backup → used → plan → sync leaves the device
+  matching the plan; a sync killed halfway resumes without re-uploading; an unsupported
+  device says "not available" instead of an empty used list. Only scenarios the unit
+  tests can't reach go here.
+- **The contract.** Each `--json` command is checked against `events.schema.json`, and the
+  same test run saves its event streams as the UI's fixtures. The UI's TypeScript types are
+  generated from the schema. So Python and the UI share one source of truth, without a
+  separate contract-test layer.
 
-### 3. Closed-loop integration tests (sidecar + fake device)
+### Playwright: flows and looks
 
-The real CLI, the real sidecar binary, and a **stateful fake `elektroid-cli`**: a small
-Python script that keeps a pretend +Drive in a temp folder and answers `ld`, `info`, `df`,
-`sample:ls/ul/rm/mkdir` and `project:dl` the way the real tool prints them (formats taken
-from the research doc and our existing parsers). Its devices come from fixture
-definitions: a Digitakt II, a mono-only Digitakt, a Digitone with no sample filesystem.
-It can also be told to fail: drop the connection after N files, report busy, run slowly.
+- **The built frontend in WebKit** (the engine of the macOS and Linux webviews; WebView2 on
+  Windows is Chromium and rarely the one that breaks), with Tauri's IPC mocked to replay
+  the fixture streams from pytest.
+- **A few critical flows,** not every screen: setup with a tool missing, build and edit a
+  plan, a sync with a device error and a resume, the typed delete confirmation. Each
+  checks what the user sees, trusting pytest for whether the plan itself is right.
+- **Screenshots** of the style sheet page and each screen with fixture data, light and
+  dark, in a pinned Playwright Docker image so pixels are stable. A diff fails the PR and
+  shows the before, after and diff images; updating a baseline is a deliberate commit.
+  These double as what the reviewer looks at to judge the design. One `axe` accessibility
+  check per screen rides along in the same tests.
 
-A fixture library is generated at test time (short silent and tone files, as pytest does
-now; no audio is committed). Scenarios run the whole loop and check invariants after:
+### Small unit tests where the logic is
 
-- backup → used → plan → sync → listing: the device ends up matching the plan, and every
-  sample a project uses is still there.
-- Kill the sync halfway, rerun: it resumes from the log without uploading twice.
-- A stale or hand-edited plan with a used sample in it: sync refuses the delete.
-- Unsupported device (Digitone): `projects used` says "not available" rather than
-  returning an empty list.
-- The device lock: a second sync on the same device waits or fails cleanly.
+Rust: event-line parsing and cancel (SIGINT, then the timeout). Vitest: viz layout
+functions (the +Drive packing, the Sankey bands) and the sidecar client's handling of
+errors. No tests for components that only render props.
 
-These run in pytest (driving the CLI) and again in Rust (driving the sidecar the way the
-app does), so the process plumbing is covered too.
+### Left out on purpose, until a real bug says otherwise
 
-### 4. End-to-end UI tests (Playwright)
-
-- **Every PR:** Playwright against the built frontend in Chromium and WebKit (WebKit is
-  close to the macOS and Linux webviews), with Tauri's IPC mocked (`@tauri-apps/api/mocks`)
-  to replay the recorded streams. Flows: setup with tools missing and found, browse and
-  audition, export with check issues, build a plan and exclude rows, a full sync, a device
-  error mid-sync, stop and resume, the typed delete confirmation. Each also runs an `axe`
-  accessibility check.
-- **Nightly and before release:** the real packaged app on Linux through `tauri-driver`
-  (WebDriver), with the real sidecar and the fake `elektroid-cli`. That's the true closed
-  loop: click in the UI, files appear on the fake device. `tauri-driver` doesn't support
-  macOS (WKWebView has no WebDriver), so macOS gets a manual smoke checklist per release.
-
-### 5. Screenshot tests
-
-- Playwright `toHaveScreenshot` on the style sheet page and each screen with fixture data,
-  in light and dark, at two window sizes. The viz components get their own shots (waveform,
-  +Drive map, plan flow, terrain) with seeded layouts so they render the same every run.
-- Run in one pinned Playwright Docker image on Linux, with the bundled fonts and
-  animations off, so pixels are stable. Baselines are committed (images of the UI, never
-  audio); a diff fails the PR and uploads the before, after and diff images as CI
-  artifacts, and changing a baseline is a deliberate commit that the reviewer looks at.
-- For AI-written UI, these shots are also what the agent reviewer (and Jules, when they
-  want to) look at to judge the design, not just to catch regressions.
+- A second browser engine in Playwright.
+- Driving the packaged app through `tauri-driver`. The IPC layer is thin; the release
+  smoke checklist (install, open, run a dry-run plan) covers it, by hand, per OS.
+- Re-running the closed loop from Rust: the Rust code that spawns the sidecar is small
+  enough for its unit tests.
+- Coverage targets. Coverage follows risk, not a number.
 
 ### On a real device
 
 Only after Jules says the live sync is finished, following the device-session checklist,
-and never as part of CI. A real run's event stream and listings can be captured (with
-names only, no audio) to become new fixtures for layers 2 to 4.
+and never in CI. A real run's event stream and listings (names only, no audio) can become
+new fixtures.
 
 ## Milestones
 
