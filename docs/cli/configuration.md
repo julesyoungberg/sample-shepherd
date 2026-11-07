@@ -23,7 +23,8 @@ The first of these that exists wins; the others are ignored, not merged.
 4. `$XDG_CONFIG_HOME/sample-shepherd/config.toml` (`~/.config/...` by default)
 
 `--config` and `$SAMPLE_SHEPHERD_CONFIG` must point at a file that exists, so a typo fails
-loudly instead of silently falling back. A setting the file doesn't know is an error too.
+loudly instead of silently falling back. An unknown section or top-level key is an error
+too.
 
 ## Settings
 

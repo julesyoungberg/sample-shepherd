@@ -108,7 +108,8 @@ the device.
   for example from your own matching). Without either, the plan only uploads.
 - A candidate is **kept** if a project uses it (same path, ignoring case, or the same content
   hash), or if it's under a protected path (`[sync] protected`, `/factory` by default).
-  Without `--used`, nothing is deleted.
+  `--prune` and `--replace` need `--used`: without it, or with an empty one, `plan` stops
+  with an error.
 - Every row is in the CSV with its reason (and, for delete candidates, the device's content
   hash): `upload`, `delete`, `skip-exists`, `keep-used`, `keep-protected`, `skip-missing`.
   You can delete rows before syncing. A delete row you add by hand needs its `hash` from the
@@ -132,7 +133,7 @@ Carries out a plan on the device.
   stops. Each delete is checked again the way `plan` checks it (protected paths, paths and
   content hashes projects use), and a delete row without the content hash from the listing
   is refused, so a stale or hand-edited plan can't slip one through. Refused deletes are
-  logged and skipped. `--no-delete` runs only the uploads.
+  logged and skipped, and don't change the exit code. `--no-delete` runs only the uploads.
 - **Resumable.** Each step is logged to `<plan>-log.csv` (or `--log`). Stop it any time
   (Ctrl-C, a dropped cable) and run the same command again: it skips what the log lists as
   done. After 20 failed steps it stops; fix the cause and rerun.
@@ -153,6 +154,6 @@ another program is transferring.
 |---|---|
 | 0 | Done. |
 | 1 | Finished, but found problems: `export check` issues, failed `sync` steps, Fourier not found. |
-| 2 | Stopped before doing anything risky: a usage error, a missing file, a refused delete, the device lock held. The message says what to fix. |
+| 2 | Stopped with an error: a usage error, a missing file, deletes without `--yes` or `--used`, the device lock held, or `sync` stopping after 20 failures. The message says what to fix. |
 | 3 | The device returned an error. |
 | 130 | Interrupted. Logged work is kept; rerun to resume. |
