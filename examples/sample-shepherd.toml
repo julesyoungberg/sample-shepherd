@@ -1,0 +1,32 @@
+# sample-shepherd config. Copy to ~/.config/sample-shepherd/config.toml (or pass --config).
+# Relative paths are read from this file's folder. Every setting is optional.
+
+# Where backups, listings and logs go when a command isn't given a path.
+work_dir = "~/sample-work"
+
+[device]
+backend = "elektron"   # the only backend so far (Elektron devices via elektroid-cli)
+id = 1                 # from `sample-shepherd device ls`; 0 is the computer itself
+
+[elektroid]
+# elektroid-cli: a name on PATH, or a path to the one you built (see README, "Elektroid").
+cli = "~/sample-work/vendor/elektroid-install/bin/elektroid-cli"
+
+[fourier]
+# The `fourier` command: on PATH, or the patched build's venv.
+command = "~/sample-work/vendor/fourier-samples/.venv/bin/fourier"
+# Environment for every fourier run. These keep Fourier's writes in one folder.
+env = { FOURIER_HOME = "~/sample-work/fourier-home", FOURIER_CONFIG = "~/sample-work/config/fourier.toml", FOURIER_DEVICES = "~/sample-work/config/devices", HF_HOME = "~/sample-work/cache/huggingface" }
+
+[export]
+# Extra folders of device profiles (YAML), searched before the bundled ones.
+profile_dirs = []
+
+[sync]
+# Device paths `plan` never deletes from, whatever the plan inputs say.
+protected = ["/factory", "/!!!RECORDINGS!!!", "/!!!SOUNDS!!!", "/recorded", "/acapellas"]
+
+[transfer]
+# Used for time estimates. Measured on a Digitakt II over USB (2026-11-06).
+bytes_per_second = 77000
+seconds_per_call = 1.6
