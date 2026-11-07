@@ -7,7 +7,8 @@ Read-only research, 2026-11-07. Sources: `github.com/bvk7787/fourier-samples` at
 
 ## Summary
 
-- **Fourier Samples is Apache-2.0.** sample-shepherd can depend on it under any license.
+- **Fourier Samples is Apache-2.0.** sample-shepherd can depend on it under any license we're
+  likely to pick (MIT, Apache-2.0, GPLv3; not GPLv2-only). Picking ours is Jules's call.
   Elektroid is GPLv3, and that's fine too, as long as we only run `elektroid-cli` as a
   separate program and don't bundle or link it.
 - **Fourier has no Python API to build on.** It's an alpha (0.1.x) CLI tool. Its extension
