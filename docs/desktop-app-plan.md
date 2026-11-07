@@ -17,12 +17,13 @@ dependencies were installed.
   no Flowbite).
 - **TanStack: Virtual yes, Query yes, Table not at first.** TanStack Virtual renders 30,000
   rows smoothly. TanStack Query caches sidecar results and refetches after a command
-  changes something. TanStack Table's Svelte 5 adapter is still settling, and our sorting
-  and filtering is a few `$derived` lines, so add Table only if column features grow
-  (resizing, grouping, pinning).
+  changes something (`svelte-query` 6 is runes-native). TanStack Table has a Svelte 5
+  adapter too, but our sorting and filtering is a few `$derived` lines, so add Table only
+  if column features grow (resizing, grouping, pinning).
 - **Visuals: canvas for anything with many marks** (waveforms, the 30k-sample map, the
   +Drive map), **SVG with d3 modules for the rest** (`d3-hierarchy`, `d3-scale`,
-  `d3-shape`, `d3-sankey`). d3 computes layouts; Svelte renders. No charting library with
+  `d3-shape`, `d3-sankey`). d3 computes layouts; Svelte renders. (`d3-sankey` hasn't
+  had a release since 2019; it works, and it's small enough to vendor if it breaks.) No charting library with
   its own look.
 - **The Python CLI stays the brain.** It ships inside the app as a PyInstaller sidecar, and
   the app runs it one command at a time with a new `--json` event stream. Every safety rule
@@ -56,14 +57,14 @@ dependencies were installed.
 │                                          ▼                   │
 │ Rust core (src-tauri)                                        │
 │   run_cli(cmd, args) → spawns sidecar, streams JSON events   │
-│   cancel(run_id)     → SIGINT, so the log is kept            │
+│   cancel(run_id)     → "stop" line on stdin, kill on timeout │
 │   peaks(path)        → waveform peaks, cached                │
+│   audition(path)     → native playback (symphonia + rodio)   │
 │   tools()            → finds elektroid-cli, fourier, sidecar │
-│   asset protocol     → audio playback, read-only scope       │
 └──────────┬──────────────────────────────┬────────────────────┘
            ▼                              ▼
   sample-shepherd sidecar          user-installed tools
-  (PyInstaller, onedir)            elektroid-cli (GPLv3, never bundled)
+  (PyInstaller onedir, resources)  elektroid-cli (GPLv3, never bundled)
            │                       fourier (bundled patched build, or the user's)
            └──── subprocess ───────────────┘
 ```
@@ -74,11 +75,17 @@ dependencies were installed.
   device commands through `elektroid-cli`, project parsing, `plan`, `sync`, the locks and
   guards. The GUI adds output modes, never alternate logic.
 - **Rust:** process plumbing and the few things that need speed or the OS: spawning and
-  cancelling the sidecar, streaming its events to the UI, computing waveform peaks
-  (`symphonia`), finding tools on disk, file dialogs, and the asset protocol for audio.
+  cancelling the sidecar (with `tokio::process`, not the shell plugin), streaming its
+  events to the UI, decoding audio with `symphonia` for waveform peaks and for audition
+  (played natively through `rodio`), finding tools on disk, and file dialogs.
   Kept small enough that a Python-only maintainer can follow it.
-- **Svelte:** screens, visuals, and audition. It never builds a command line from free
-  text: it calls named Rust commands with typed arguments.
+- **Svelte:** screens, visuals, and the audition controls. It never builds a command
+  line from free text: it calls named Rust commands with typed arguments.
+
+Audition is native rather than in the webview because webviews disagree on formats:
+WebView2 can't play AIFF (common in sample packs) and WebKitGTK needs GStreamer plugins.
+Rust already decodes for peaks, and native playback is also lower-latency for `J`/`K`
+browsing.
 
 ### Sidecar protocol
 
@@ -94,26 +101,37 @@ to stdout and nothing else (human text goes to stderr):
 {"v":1,"type":"error","code":"device_busy","msg":"…"}
 ```
 
-- `v` is the schema version. The app refuses a sidecar with a newer major version.
+- `v` is the schema version, an integer bumped on any breaking change. The app refuses any
+  `v` it doesn't know.
+- **Stdout is only events.** In `--json` mode the CLI, at startup, keeps the real stdout
+  as a private file descriptor for events and points fd 1 at stderr. So a stray `print`,
+  tqdm, or a child process (Fourier, PyTorch) can't corrupt the stream. One pytest makes a
+  child print to stdout and checks the stream still parses.
 - Exit codes stay as they are (0, 2 user error, 3 device error, 130 stopped).
 - A pytest per command checks its event shapes against a JSON Schema in
   `src/sample_shepherd/events.schema.json`, and the UI generates TypeScript types from the
   same file, so the two can't drift.
 - **One process per command, at first.** It matches the CLI, keeps the per-device lock
-  simple, and a crash can't wedge the app. PyInstaller `onedir` starts in well under a
-  second. If library browsing makes startup cost add up, add `sample-shepherd serve
+  simple, and a crash can't wedge the app. The sidecar is a PyInstaller `onedir` build
+  (no unpacking on each launch, unlike `onefile`), so it starts in well under a second. If library browsing makes startup cost add up, add `sample-shepherd serve
   --stdio` (JSON-RPC over stdin and stdout) for read-only queries only; writes and device
   commands stay one-shot.
-- **Cancel** sends SIGINT (Windows: CTRL_BREAK to a new process group), so `sync` takes its
-  existing "stopped, rerun to resume" path. A force-kill comes only after a timeout, with a
-  warning.
+- **Cancel is cooperative.** The app writes `{"type":"stop"}` to the sidecar's stdin.
+  `sync` checks for it between files, finishes the current transfer (so `elektroid-cli`
+  is never killed mid-file, which could leave a partial file on the device), logs it, and
+  exits through the existing "stopped, rerun to resume" path. This works the same on every
+  OS, unlike signals: Windows has no SIGINT for a GUI app's child, and a signal to the
+  Python process alone would make `subprocess.run` kill `elektroid-cli` mid-transfer. A
+  hard kill is only a fallback after a timeout, with a warning. pytest covers "stop
+  between files" with the fake device.
 
 ### New CLI pieces the app needs
 
 1. `--json` on every command (above).
 2. `library index --json`: scan a curated master (read-only) and write a SQLite cache in
    the app's data folder: path, folder, category, duration, sample rate, channels, size,
-   rating, content hash. Incremental by mtime and size. The browser queries this.
+   content hash, and the rating from Fourier's review data when there is one (read-only,
+   the same ratings `fourier review` sets; the column is simply empty without them). Incremental by mtime and size. The browser queries this.
 3. `tools --json`: the versions and paths of `elektroid-cli` and `fourier`, and what each
    enables. The onboarding screen is this command, drawn.
 4. `plan --json` row stream and `plan edit` (exclude or include rows by id), so a reviewed
@@ -126,10 +144,16 @@ All four are useful from the terminal too, and each gets tests without a device.
 - **The plan is the dry run.** The Sync screen only accepts a plan the Plan screen
   produced and showed. Starting a sync with deletes asks for the number of deletes typed
   back, then passes `--yes`. The CLI still checks every delete again.
-- **Sources are read-only.** Tauri's fs scope gives the source library and master read
-  access only; writes go to `work_dir`, export folders the user picks, and app data.
-- **Shell scope** allows exactly two programs: our sidecar and the `elektroid-cli` path
-  found at onboarding, with argument validators. No generic "run a command".
+- **Sources are read-only because Python says so.** The sidecar (and Fourier under it)
+  runs with the user's full permissions; Tauri's scopes only limit the webview. So the
+  guarantee is the CLI's: it never writes to the source library or the master, and that
+  stays tested in pytest. The **Ableton User Library is never written, by anything**, and
+  is left out of the webview's fs and asset scope entirely (audition goes through Rust,
+  which only reads). Writes go to `work_dir`, export folders the user picks, and app data.
+- **No shell permissions in the webview.** Svelte calls named Rust commands with typed
+  arguments; Rust spawns the sidecar itself; Python runs `elektroid-cli`. So the Tauri
+  shell plugin isn't used and `elektroid-cli` is in no Tauri scope: `tools()` only finds
+  it and passes its path to the CLI through config.
 - **Device busy** shows as a banner from the lock file, and device buttons go disabled.
   The app can't see Elektron Transfer either, so it says so before any device command.
 - Nothing the app does depends on the device for its tests: Rust and UI tests run the
@@ -215,9 +239,10 @@ Ordered by how much each helps; the first four are in scope for v1.
    sized by bytes and colored by category, grouped by folder. Samples a project uses get a
    solid outline; ones the plan would delete get the hatch. Free space is empty paper. You
    see at once what fills the drive and what's safe to clear.
-3. **Plan flow** (SVG, `d3-sankey`). Export on the left, device on the right; bands for
-   upload, skip (already there), keep (project uses it), keep (protected), delete. Band
-   widths are bytes, so the cost of a sync in transfer time is visible before you start.
+3. **Plan flow** (SVG, `d3-sankey`). Two flows, stacked: the export flowing into the
+   device (upload, skip because it's already there), and what's on the device flowing out
+   to its fate (keep because a project uses it, keep because it's protected, keep, delete).
+   Band widths are bytes, so the cost of a sync in transfer time is visible before you start.
    Clicking a band filters the row list.
 4. **Library terrain** (SVG, `d3-hierarchy` icicle). Section → category → folder →
    files, width by count or bytes. Doubles as navigation for the Library screen, and makes
@@ -242,7 +267,7 @@ without touching the screens around it. Candidates, for when canvas runs out or 
   space you fly through; points pulse as they're auditioned, nearest neighbours light up.
   WebGL handles that point count at 60 fps where canvas 2D struggles.
 - **Spectrogram waterfall:** the inspector's waveform as a scrolling, shaded spectrogram
-  during playback, computed with an `AnalyserNode` and drawn as a texture.
+  during playback, FFT frames computed in Rust alongside playback and drawn as a texture.
 - **+Drive map as a shader:** the storage grid as one instanced draw, so hover, zoom and the
   sync animation (cells filling as uploads land) stay smooth on a full drive.
 - **Sync as a particle flow:** the plan's Sankey bands as streams of particles moving at the
@@ -266,14 +291,21 @@ scripts/                 untouched: ~/sample-work/scripts symlinks into it
 
 ## Packaging per OS
 
-The sidecar is built by PyInstaller on each OS and architecture (it can't cross-compile),
-named with Tauri's target-triple suffix (`sample-shepherd-aarch64-apple-darwin`), and
-listed under `bundle.externalBin`. Fourier, if bundled, is a second PyInstaller sidecar
-built from the patched source with its LICENSE and NOTICE in the app's resources.
+The sidecar is built by PyInstaller on each OS and architecture (it can't cross-compile)
+as a `onedir` folder: an executable plus `_internal/`. Tauri's `bundle.externalBin` takes
+only a single executable, so the folder ships under `bundle.resources`, and Rust spawns
+it by its resolved path. Fourier, if bundled, is a second `onedir` build the same way.
+
+**Licenses in the bundle.** Fourier ships with its LICENSE, NOTICE and
+`THIRD_PARTY_NOTICES.md`, plus our patch series (`config/patches/`) as the record of what
+we changed. A PyInstaller bundle carries every transitive dependency, so the build
+collects their licenses (`pip-licenses`, and `cargo about` for Rust) into a notices file
+in the app, and fails on anything copyleft for a human to decide. This applies to our own
+sidecar too, and runs before any release.
 
 | OS | Installer | Notes |
 |---|---|---|
-| macOS (arm64, x86_64) | `.dmg` / `.app` | Signing and notarization need an Apple Developer ID (Jules's account and cost). Both sidecars are signed too, with the hardened runtime. Without signing, users must right-click → Open. `elektroid-cli` is built from source (README steps), so Setup links to them |
+| macOS (arm64, x86_64) | `.dmg` / `.app` | Signing and notarization need an Apple Developer ID (Jules's account and cost). Every executable, `.so` and `.dylib` inside both `onedir` sidecars is signed too, with the hardened runtime. Without signing, users must right-click → Open. `elektroid-cli` is built from source (README steps), so Setup links to them |
 | Windows (x86_64) | NSIS `.exe` (or `.msi`) | WebView2 bootstrapper included. Elektroid has no official Windows build, so sync is unavailable there unless the user provides `elektroid-cli`; organize, export and the library work |
 | Linux (x86_64) | `.AppImage`, `.deb` | `apt install elektroid` provides `elektroid-cli`. WebKitGTK 4.1 is a runtime dependency of the `.deb` |
 
@@ -332,7 +364,7 @@ What exists today, extended:
 
 ### Small unit tests where the logic is
 
-Rust: event-line parsing and cancel (SIGINT, then the timeout). Vitest: viz layout
+Rust: event-line parsing and cancel (the stop line, then the timeout). Vitest: viz layout
 functions (the +Drive packing, the Sankey bands) and the sidecar client's handling of
 errors. No tests for components that only render props.
 
