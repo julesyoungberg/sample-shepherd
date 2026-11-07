@@ -44,8 +44,8 @@ bytes_per_second = 100000
 
 def test_unknown_setting_is_an_error(tmp_path):
     f = tmp_path / "c.toml"
-    f.write_text("typo = 1\n")
-    with pytest.raises(ValueError, match="unknown settings"):
+    f.write_text("[snyc]\nprotected = []\n")
+    with pytest.raises(ValueError, match=r"unknown settings \['snyc'\].*did you mean 'sync'"):
         config.load(str(f))
 
 

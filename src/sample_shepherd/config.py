@@ -99,17 +99,21 @@ def _check_keys(path: Path, data: dict) -> None:
     known = {"work_dir", *SECTIONS}
     unknown = set(data) - known
     if unknown:
-        raise ValueError(f"{path}: unknown settings {sorted(unknown)} (known: {sorted(known)})")
+        raise ValueError(f"{path}: unknown settings {sorted(unknown)}"
+                         f"{_hint(min(unknown), known)} (known: {sorted(known)})")
     for name, keys in SECTIONS.items():
         if name not in data:
             continue
         if not isinstance(data[name], dict):
             raise ValueError(f"{path}: [{name}] must be a table of settings")
         for key in sorted(set(data[name]) - keys):
-            close = difflib.get_close_matches(key, keys, n=1)
-            hint = f"; did you mean '{close[0]}'?" if close else ""
-            raise ValueError(f"{path}: unknown setting [{name}] {key}{hint} "
+            raise ValueError(f"{path}: unknown setting [{name}] {key}{_hint(key, keys)} "
                              f"(known in [{name}]: {sorted(keys)})")
+
+
+def _hint(key: str, known: set[str]) -> str:
+    close = difflib.get_close_matches(key, known, n=1)
+    return f"; did you mean '{close[0]}'?" if close else ""
 
 
 def _path(base: Path, value: str) -> Path:
