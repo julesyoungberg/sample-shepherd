@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""A fake elektroid-cli for tests: a folder stands in for the device.
+
+$FAKE_ELEKTROID_ROOT/drive/      the sample storage (+Drive); files are stored without extension
+$FAKE_ELEKTROID_ROOT/projects/   <slot>.dt2prj, one per project slot; <slot>.name holds its name
+$FAKE_ELEKTROID_ROOT/calls.log   one line per call
+$FAKE_ELEKTROID_FAIL             uploads whose source path, or project downloads whose name,
+                                 contains this text fail (a download leaves half a file)
+
+Output formats copy Elektroid's (src/elektroid-cli.c, src/connectors/elektron.c).
+"""
+import os, shutil, sys, zlib
+from pathlib import Path
+
+ROOT = Path(os.environ["FAKE_ELEKTROID_ROOT"])
+DRIVE, PROJECTS = ROOT / "drive", ROOT / "projects"
+
+
+def human(n):
+    KI, MI, GI = 1024, 1024**2, 1024**3
+    if n < KI:
+        return f"{n}B"
+    if n < MI:
+        return f"{n / KI:.4g}KiB"
+    if n < GI:
+        return f"{n / MI:.4g}MiB"
+    return f"{n / GI:.4g}GiB"
+
+
+def local(devpath):
+    dev, _, path = devpath.partition(":")
+    if dev != "1":
+        die(f"Error while connecting to device {dev}")
+    return DRIVE / path.strip("/")
+
+
+def die(msg, code=1):
+    print(msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def main(argv):
+    with open(ROOT / "calls.log", "a") as fh:
+        fh.write(" ".join(argv) + "\n")
+    cmd = argv[0]
+    if cmd == "ld":
+        print("0: id: SYSTEM; name: computer")
+        print("1: id: 42; name: Elektron Digitakt II")
+        return
+    if cmd == "info":
+        print("Type: MIDI\nDevice name: Digitakt II\nDevice version: 1.15\n"
+              "Device description: Elektron Digitakt II\nConnector: elektron\n"
+              "Filesystems: data, preset-takt-ii, project, sample, raw (CLI only)")
+        return
+    if cmd == "elektron:sample:ls":
+        d = local(argv[1])
+        if not d.is_dir():
+            die("Error: No such file or directory")
+        for p in sorted(d.iterdir()):
+            if p.is_dir():
+                print(f"D {'0B':>10} {0:08x} {p.name}")
+            else:
+                data = p.read_bytes()
+                print(f"F {human(len(data)):>10} {zlib.crc32(data):08x} {p.name}")
+        return
+    if cmd == "elektron:sample:mkdir":
+        local(argv[1]).mkdir(parents=True, exist_ok=True)
+        return
+    if cmd == "elektron:sample:ul":
+        src, dest = Path(argv[1]), local(argv[2])
+        if os.environ.get("FAKE_ELEKTROID_FAIL") and os.environ["FAKE_ELEKTROID_FAIL"] in str(src):
+            die("Error while uploading: timeout")
+        if not dest.is_dir():
+            die("Error: No such file or directory")
+        target = dest / src.stem
+        if target.exists():
+            die("Error: File exists")
+        shutil.copyfile(src, target)
+        return
+    if cmd == "elektron:sample:rm":
+        p = local(argv[1])
+        if not p.is_file():
+            die("Error: No such file or directory")
+        p.unlink()
+        return
+    if cmd == "elektron:project:ls":
+        for p in sorted(PROJECTS.glob("*.dt2prj"), key=lambda p: int(p.stem)):
+            name = (PROJECTS / f"{p.stem}.name").read_text().strip()
+            size = human(p.stat().st_size)
+            print(f"F {0x7:04x} 1 1 {size:>10} {p.stem:>10} {name:<32}")
+        return
+    if cmd == "elektron:project:dl":
+        slot = argv[1].partition(":")[2].strip("/")
+        src = PROJECTS / f"{slot}.dt2prj"
+        if not src.is_file():
+            die("Error: No such slot")
+        dest = Path(argv[2]) if len(argv) > 2 else Path(".")
+        dest.mkdir(parents=True, exist_ok=True)
+        name = (PROJECTS / f"{slot}.name").read_text().strip()
+        if os.environ.get("FAKE_ELEKTROID_FAIL") and os.environ["FAKE_ELEKTROID_FAIL"] in name:
+            (dest / f"{name}.dt2prj").write_bytes(b"PK half a zip")
+            die("Error while downloading: timeout")
+        shutil.copyfile(src, dest / f"{name}.dt2prj")
+        return
+    die(f"unknown command {cmd}", 2)
+
+
+main(sys.argv[1:])

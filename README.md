@@ -1,173 +1,237 @@
-# Digitakt II sample library: working notes
+# sample-shepherd
 
-Builds a curated Digitakt II library from `~/Music/Ableton/User Library/Samples/sample packs`
-with [Fourier Samples](https://github.com/bvk7787/fourier-samples), without touching the
-source library or breaking existing Digitakt projects.
+Organize a sample library, export it for each of your instruments, and sync it to hardware
+samplers without breaking the projects already on them.
 
-**Rules:** the Ableton User Library is a read-only input. Every write goes under `~/sample-work`.
-Every script has `--dry-run`. Bulk operations get a written plan and your approval first.
+It's one command, `sample-shepherd`, with three layers:
 
+1. **organize**: curate a library (classify, name, dedupe, rate, folder). This is done by
+   [Fourier Samples](https://github.com/bvk7787/fourier-samples), which sample-shepherd runs
+   as a separate program.
+2. **export**: render the curated library for a target by *device profile*: a plain folder
+   for Ableton Live or XO, a Digitakt II layout, or your own profile.
+3. **sync**: back up the device's projects, work out which samples they use, plan what to
+   upload and delete, and carry the plan out, resumably. Elektron devices come first,
+   through [Elektroid](https://github.com/dagargo/elektroid)'s `elektroid-cli`.
 
-## This repository
+It was built for one producer's Digitakt II, a library of about 30,000 samples synced over a
+USB link that moves about 77 KB/s. So it's careful by default: every command that writes
+or touches a device has `--dry-run`, nothing deletes without `--yes`, and a sample a project
+uses is never deleted.
 
-Our own code and config for the library, kept in git since 2026-11-06. The working tree stays in
-`~/sample-work` (outputs, Fourier home, vendor checkouts); `scripts/`, `config/`, `fourier.env` and
-this README there are symlinks into `~/workspace/digitakt-library`. `docs/` holds copies of the phase
-reports and plans. `config/patches/` are our patches to Fourier Samples (base `131ee62`, branch
-`local/adaptive-folders`); `config/ratings-snapshot.json` is a copy of `$FOURIER_HOME/ratings.json`.
-No audio is ever committed.
+## Safety first
 
-## Layout
+Read this before pointing it at a device you care about.
 
-```
-~/sample-work/
-  README.md              this file
-  fourier.env            source before any fourier command: points every Fourier path here
-  vendor/fourier-samples Fourier, cloned and pinned at 131ee62; its own .venv
-  config/                fourier.toml and device profiles (Phase 1)
-  fourier-home/          Fourier's database, CLAP index, caches, logs (created by the first build)
-  cache/huggingface/     CLAP model (created by the first build)
-  out/                   master, renders, releases (Phase 1+)
-  scripts/               our own scripts (Phase 3)
-  reports/               phase reports, CSVs
-  tmp/                   test-suite home and demo; safe to delete
-```
+- **Back up your projects first** (`sample-shepherd projects backup`), and copy the backup off
+  your computer too. Never "test" a backup by restoring it: a restore overwrites the project
+  on the device.
+- **Projects reference samples by hash and size.** Delete a sample a project uses and the
+  project loses it. `plan` reads every backed-up project's sample list and won't delete
+  any of those samples, matched by path or by content hash. With no project list at all, it
+  won't delete anything.
+- **One program talks to the device at a time.** Concurrent MIDI access can corrupt a
+  transfer. sample-shepherd holds a lock per device (in `$XDG_RUNTIME_DIR` or the temp
+  folder) while it uses it, but it can't see other programs: close Elektron Transfer, and
+  don't run `elektroid-cli` by hand, or the older `scripts/` (which don't take the lock),
+  alongside it.
+- **Uploads never overwrite.** A file whose name is already in its device folder is skipped.
+- **Deletes come last.** `sync` deletes only after every upload in the plan has succeeded,
+  and checks each delete again the way `plan` does (protected paths, paths and content
+  hashes projects use), so a hand-edited or stale plan can't slip one through.
+- **An incomplete backup is refused.** `projects used` checks the backup against the slot
+  list `projects backup` saved, so a missing project can't make its samples look deletable.
+- **Your source library is read-only input.** Nothing here writes to it.
+- **No audio goes in this repository.** `.gitignore` excludes wav/mp3/aif/flac; tests make
+  their own tiny silent files at run time.
 
-## Phase 0: setup (done 2026-10-25)
+## Prerequisites
 
-Results: [reports/phase0-report.md](reports/phase0-report.md).
+- **Python 3.11+** and [uv](https://docs.astral.sh/uv/) (or pipx).
+- **For sync:** `elektroid-cli`, built from source on macOS (below). On Debian/Ubuntu,
+  `apt install elektroid` provides it.
+- **For organize and export render:** Fourier Samples. Our device profiles and overlay need
+  our patched build (`sample-shepherd organize install-fourier`, below). Fourier is
+  Apache-2.0. If you use its CLAP model, note that the model's training data is marked
+  research-use only; see Fourier's README.
+- `export check`, `plan` and `projects used` need neither: they read files only.
 
-```bash
-# install (project-local; nothing system-wide)
-mkdir -p ~/sample-work/vendor
-git clone https://github.com/bvk7787/fourier-samples ~/sample-work/vendor/fourier-samples
-cd ~/sample-work/vendor/fourier-samples
-git checkout 131ee62
-# Python itself lives in ~/sample-work/vendor/python (uv-managed), not Homebrew: Homebrew removed
-# its python@3.13 on 2026-11-06 and broke the old venv (moved to tmp/venv.broken-20261106)
-UV_PYTHON_INSTALL_DIR=~/sample-work/vendor/python uv python install 3.13.16
-uv sync --frozen --python ~/sample-work/vendor/python/cpython-3.13.16-macos-aarch64-none/bin/python3.13 --extra dev --extra clap
+### Elektroid (`elektroid-cli`) on macOS
 
-# tests: 2028 passed, 15 skipped (manual PDFs / Windows / CAF), 3 min
-FOURIER_HOME=~/sample-work/tmp/test-home HF_HUB_OFFLINE=1 .venv/bin/python -m pytest -n auto -q -p no:cacheprovider
-
-# smoke test: builds, verifies and renders 280 synthetic samples in 40 s
-. ~/sample-work/fourier.env
-fourier demo --dir ~/sample-work/tmp/fourier-demo
-```
-
-Source inspection used only `find`, `du` and `ls`. Per-pack counts are in `reports/packs-by-count.txt`.
-
-## Phase 1: test run (done 2026-10-26; waiting for your listening review)
-
-Results: [reports/phase1-report.md](reports/phase1-report.md). 239 of 480 files picked, verify PASS,
-no folder over 50 files, every Digitakt file 48 kHz/16-bit. Took 62 s to build and 6 s per render.
-
-Settings: `config/fourier.toml` (4 packs as library entries, `preset = "balanced"`, `retune = "off"`,
-outputs under `out/`) and `config/devices/digitakt_2_50.yaml` (extends `digitakt_2`, 50 files a folder).
+Elektroid is GPLv3. sample-shepherd runs it as a separate program and doesn't include it.
 
 ```bash
-. ~/sample-work/fourier.env
-cd ~/sample-work
-P="$HOME/Music/Ableton/User Library/Samples/sample packs"
-env -u FOURIER_CONFIG fourier setup --yes --to "$FOURIER_CONFIG" \
-  --library "$P/old/Brad Brunazzi Vintage Drum Machines" \
-  --library "$P/2025/WOST - CLUB DRUMZ VOL. 1 (sample pack)" \
-  --library "$P/old/Lurka - Lurka Sample Pack" \
-  --library "$P/2024/Chord Marauders - Geode - U.D. Sample Pack" \
-  --device digitakt_2_50 --device generic_folder --preset balanced --processing prepared \
-  --master out/master --renders out/renders --publish out/publish --clap --no-llm --no-build
-# then added  retune = "off"  to config/fourier.toml
-fourier build --dry-run                 # up to ~405 files, ~226 MB; wrote nothing
-fourier build > reports/phase1-build-output.txt 2>&1
-fourier render generic_folder           # preview for Ableton/XO -> out/renders/generic_folder
-fourier render digitakt_2_50            # preview only (no --release); for format/folder checks
-python -I scripts/build_report.py --out reports/phase1 [--dry-run]   # read-only report
+brew install autoconf automake libtool glib json-glib libsndfile libsamplerate libzip zlib \
+  rtmidi rtaudio rubberband
+git clone https://github.com/dagargo/elektroid
+cd elektroid
 ```
 
-Audition: `out/renders/generic_folder`, or `fourier open report` to listen and rate.
+**One fix is needed for a CLI-only build.** Upstream `configure.ac` line 72 asks for GTK
+exactly when the GUI is turned *off*. Swap the two branches so it reads:
 
-### Phase 1b: local Fourier patch for `SD_` names (done 2026-10-26)
+```
+AM_COND_IF(ELEKTROID_BUILD_GUI, [PKG_CHECK_MODULES([GTK], [gtk+-3.0])], [])
+```
 
-Fourier read the vendor prefix `SD_` ("SD_Falcon_Kick") as "snare drum", so kicks, hats and toms
-were lost or put in SNARES. An overlay can't change that (see the Phase 1 report), so Fourier
-carries a local patch: branch `local/sd-vendor-prefix`, 3 commits on `131ee62` (patch 0004 adds `local/adaptive-folders` on top), also saved as
-`config/patches/*.patch`. **If Fourier is ever re-cloned or upgraded, reapply them**:
+Then build into a folder of your choice:
 
 ```bash
-cd ~/sample-work/vendor/fourier-samples
-git switch -c local/sd-vendor-prefix 131ee62      # or the new upstream commit
-git am ~/sample-work/config/patches/*.patch
-FOURIER_HOME=~/sample-work/tmp/test-home HF_HUB_OFFLINE=1 .venv/bin/python -m pytest -n auto -q -p no:cacheprovider
+autoreconf --install
+./configure --prefix="$HOME/opt/elektroid" BUILD_GUI=no
+make && make install
+"$HOME/opt/elektroid/bin/elektroid-cli" ld      # 0 is your computer, 1 the first device
 ```
 
-Tests: 2048 passed, 15 skipped. Rebuild (same config, about 20 s; the previous master is kept
-in `out/master.prev`):
+Point sample-shepherd at it with `[elektroid] cli = "..."` in the config, or
+`--elektroid-cli`.
+
+## Install
 
 ```bash
-. ~/sample-work/fourier.env && cd ~/sample-work
-fourier build --dry-run
-fourier build > reports/phase1b-build-output.txt 2>&1
-fourier render generic_folder && fourier render digitakt_2_50
-python -I scripts/build_report.py --out reports/phase1b
+uv tool install git+https://github.com/julesyoungberg/sample-shepherd
+# or: pipx install git+https://github.com/julesyoungberg/sample-shepherd
+# with stock Fourier from PyPI as well: uv tool install 'sample-shepherd[organize] @ git+https://...'
+sample-shepherd --help
 ```
 
-Result: no `SD_` file is placed nowhere any more (24 before). 242 source files are in the master,
-250 files per render, and verify passes. Details and the before/after table are in the Phase 1
-report under "Phase 1b". The Phase 1 file lists from before the patch are in `tmp/phase1a/`.
-
-## Phase 2: full build of `sample packs` (run 2026-10-26/27; waiting for your review)
-
-Results: [reports/phase2-report.md](reports/phase2-report.md). The build has 10,830 files in 317
-subfolders, none over 50, every Digitakt file 48 kHz/16-bit, 5.7 GB. **Verify failed 5 checks**,
-so the build is held in `out/full/master.next`. The report lists each failure and your options.
-Nothing is published or released.
-
-Settings: `config/fourier.toml` (the 4 year folders as library entries, `scale = "off"`, outputs
-in `out/full/`; the Phase 1 config is saved in `tmp/fourier.phase1.toml`) and `config/overlay.yaml`
-(`MAX_PER_FAMILY 50`, `FOLDER_MAX 24`, `FOLDER_MIN_FILES 6`).
+From a checkout, for development:
 
 ```bash
-. ~/sample-work/fourier.env && cd ~/sample-work
-fourier config explain MAX_PER_FAMILY          # confirm the overlay is read
-fourier build --dry-run
-# libsndfile's MP3 decoder crashes (SIGBUS) when threads open MP3s together: analyze on 1 thread
-fourier tools analyze --only librosa --workers 1
-fourier tools analyze --workers 1
-fourier build -j 6 > reports/phase2-build-output.txt 2>&1   # verify FAIL -> out/full/master.next
-# previews of the held-back build (no release, nothing locked)
-fourier render generic_folder --from out/full/master.next --out out/full/preview/generic_folder
-fourier render digitakt_2_50  --from out/full/master.next --out out/full/preview/digitakt_2_50
-python -I scripts/build_report.py --master out/full/master.next --renders out/full/preview --out reports/phase2
-python -I scripts/folder_structure.py --root out/full/preview/digitakt_2_50 --out reports/phase2
+uv venv && uv pip install -e '.[dev]'
+.venv/bin/pytest            # no device needed
 ```
 
-Times: analysis about 2.5 h on 1 thread (cached now), build 12 min, renders 25 s each. Disk: 24 GB.
+## Configure
 
-### Phase 2b: keep more files, three folder levels (built 2026-11-03; waiting for your review)
+Copy [examples/sample-shepherd.toml](examples/sample-shepherd.toml) to
+`~/.config/sample-shepherd/config.toml` and edit the paths. Every setting is optional, and
+flags override the file (`--config`, `--work-dir`, `--device`, `--elektroid-cli`).
+`sample-shepherd config show` prints what's in effect.
 
-Results: [reports/phase2b-report.md](reports/phase2b-report.md): 29,863 files, 1,122 folders, none over 50, verify
-failed 5 checks (held in `out/full2/master.next`). Plan: [reports/phase2b-plan.md](reports/phase2b-plan.md). Fourier patches 0004–0008 (branch
-`local/adaptive-folders`): adaptive folder counts (a full folder splits instead of cutting files)
-and a render-time third level `CATEGORY/group/family` named from Live 12's auto-tags
-(`FOLDER_GROUPS`). Config: new `config/overlay.yaml`, outputs in `out/full2/`, profiles
-`generic_folder_3` and `digitakt_2_50_3` (the Digitakt one is preview-only until nested folders are
-checked on the device). Phase 2's overlay and config are saved in `tmp/overlay.phase2.yaml` and
-`tmp/fourier.phase2.toml`.
+## Quick start: sync a Digitakt II
 
-## Device sessions and Phase 3 (prepared, not run)
+```bash
+sample-shepherd device ls                       # find its number (1 for the first device)
+sample-shepherd device info                     # its filesystems; "sample" means sync works
 
-- [reports/device-session-1-checklist.md](reports/device-session-1-checklist.md): backup first,
-  then the +Drive listing, free space and project sample lists, all into `~/sample-work/device/`.
-  No uploads, deletes, moves or restores.
-- `scripts/drive_match.py` (shared matching), `scripts/project_coverage.py`, `scripts/delete_list.py`:
-  read-only, with `--dry-run`. Both stop without the device data. They were tested only on made-up
-  input in `tmp/phase3-selftest/`. Matching uses a byte hash, else name plus the 16-bit/48 kHz
-  size, else name plus duration. A name alone is never enough.
+# 1. Back up every project, one folder per slot (slow: dry run first for the estimate)
+sample-shepherd projects backup --out backups/2026-11-07 --dry-run
+sample-shepherd projects backup --out backups/2026-11-07
 
-### Phase 2c: verify fixes and finer groups (built 2026-11-06; verify passed, master in `out/full2/master`)
+# 2. What do the projects use? (reads the backups, not the device)
+sample-shepherd projects used --backups backups/2026-11-07 --out used.csv
 
-Plan: [reports/phase2c-plan.md](reports/phase2c-plan.md). 37 verify failures stored as Drop ratings
-(`config/phase2b-drops.csv`); patch 0007 keeps drum words out of tonal folder names; patch 0008
-groups foley by its files' names and splits closed hats. Previews re-rendered with the new groups;
-rebuilt with your approval: 29,849 files, verify passed, master in place. Acapellas: waiting for your choice.
+# 3. What's on the device? (read-only)
+sample-shepherd device listing --out listing.csv
+
+# 4. Render your library for the device, and check it
+sample-shepherd export render digitakt_2_50_3 --out renders/digitakt
+sample-shepherd export check renders/digitakt --profile digitakt_2_50_3
+
+# 5. Plan: upload what's missing; with --prune, delete what the export no longer has
+sample-shepherd plan --listing listing.csv --used used.csv --export renders/digitakt \
+    --folders 01_KICKS 02_SNARES --prune --out plan.csv
+#    -> read plan.csv. Edit it if you like: remove a row and it won't happen.
+
+# 6. Sync, resumably. Stop it any time; run the same command again to continue.
+sample-shepherd sync --plan plan.csv --dry-run
+sample-shepherd sync --plan plan.csv --used used.csv --yes
+```
+
+Transfers are slow (about 77 KB/s plus 1.6 s per file on a Digitakt II), so `plan` and
+`sync --dry-run` print a time estimate. Set `[transfer]` in the config to your own speeds;
+`sync` prints the measured speed as it goes.
+
+## Commands
+
+| Command | What it does | Writes / touches |
+|---|---|---|
+| `organize doctor` | Is Fourier installed and configured? | nothing |
+| `organize build [--dry-run] [-- args]` | Runs `fourier build` | Fourier's outputs |
+| `organize patches` | Lists our patches to Fourier | nothing |
+| `organize install-fourier --dir D [--dry-run]` | Clones Fourier at the base commit, applies the patches, `uv sync` | `D` |
+| `export profiles` | Lists device profiles | nothing |
+| `export render PROFILE [--from M] [--out O] [--dry-run]` | Runs `fourier render` with our profiles | `O` |
+| `export check RENDER --profile P` | Checks files per folder, folder depth, sample rate, bit depth, and (Elektron) names over 32 characters | nothing |
+| `device ls` / `device info` | Connected devices / a device's filesystems | reads the device |
+| `device listing --out CSV [--dry-run]` | Lists the sample storage: `path,size,hash` | reads the device |
+| `projects ls` | Lists project slots | reads the device |
+| `projects backup [--out DIR] [--slots ...] [--dry-run]` | Downloads projects, one folder per slot, plus `backup-index.csv` with SHA-256s | reads the device; writes `DIR` |
+| `projects used --backups DIR --out CSV [--allow-partial]` | Samples the backed-up projects use: `path,size,hash,projects`. Refuses a backup missing any slot | `CSV` |
+| `plan ... --out CSV [--dry-run]` | Upload/delete plan (see below) | `CSV` |
+| `sync --plan CSV [--used CSV] [--yes] [--no-delete] [--dry-run]` | Carries out a plan, logging each step to `<plan>-log.csv` | **the device** |
+
+### How `plan` decides
+
+- **Upload** each export file whose device path (folder plus name, no extension) isn't on the
+  device. `--folders` limits it to some top-level folders, and `--dest` puts them under a device
+  folder.
+- **Delete candidates** come only from what you ask for: `--prune` (device files inside the
+  synced folders that the export doesn't have), and `--replace CSV` (a list of device paths,
+  for example from your own matching).
+- A candidate is **kept** if a project uses it (same path, ignoring case, or the same content
+  hash), or if it's under a protected path (`[sync] protected`, `/factory` by default).
+- Every row is in the CSV with its reason (and, for delete candidates, the device's content
+  hash): `upload`, `delete`, `skip-exists`, `keep-used`, `keep-protected`, `skip-missing`.
+  You can delete rows before syncing. A delete row you add by hand needs its `hash` from the
+  listing, or `sync` refuses it.
+
+## Supported devices
+
+Elektron, through `elektroid-cli`. What works depends on the device's filesystems
+(`device info`):
+
+| Device | Sample sync | Project backup | Projects list their samples (`projects used`) |
+|---|---|---|---|
+| Digitakt II | yes (stereo kept) | yes (`.dt2prj`) | yes |
+| Digitakt | yes (mono) | yes (`.dtprj`) | yes |
+| Analog Rytm MKI/MKII | yes (mono) | yes (`.arprj`) | yes |
+| Model:Samples | yes (mono) | yes (`.msprj`) | yes |
+| Syntakt | no (slot-based `data-sample` only) | yes | no |
+| Digitone I/II | no sample filesystem | yes | no |
+
+Only the Digitakt II has been used with real hardware so far. `projects used` stops with an
+error for a project whose package has no sample list, rather than treating it as "uses
+nothing". Adding another device family: [docs/adding-a-device.md](docs/adding-a-device.md).
+
+## Device profiles
+
+Profiles are YAML in Fourier's format. Bundled ones (from [config/devices](config/devices)):
+
+- `digitakt_2_50`: Digitakt II, 48 kHz/16-bit, at most 50 files a folder, two levels.
+- `digitakt_2_50_3`: the same with three levels, `CATEGORY/group/family`.
+- `generic_folder_3`: a plain folder for Live or XO, 44.1 kHz/24-bit, three levels.
+
+Fourier's own profiles (`digitakt_2`, `generic_folder`, `m8`, ...) work too. To write your
+own, see [docs/adding-a-profile.md](docs/adding-a-profile.md).
+
+## Fourier and our patches
+
+Fourier is an external command here, found through `[fourier] command` or `PATH`, with the
+environment from `[fourier] env`. Our 8 patches to it live in
+[config/patches](config/patches); [docs/fourier-patches.md](docs/fourier-patches.md) says
+what each does, whether our config needs it, and how it could go upstream.
+
+## Repository layout
+
+```
+src/sample_shepherd/   the package: cli.py, config.py, organize/, export/, sync/
+tests/                 pytest; tests/fake/elektroid-cli stands in for a device
+config/                Fourier config, device profiles, patches, curation decisions
+examples/              an example config file
+docs/                  how-tos, and the notes and reports from the original library build
+scripts/               the original one-off scripts (still in use; see below)
+```
+
+`scripts/` holds the scripts the first library build used: listing, upload, guarded delete,
+source matching and reports. They're kept where they are and working, because a working
+tree runs them by path. The package replaces the device parts (`drive_listing.py`,
+`upload_tree.py`, `delete_replaced.py`) with `device listing`, `plan` and `sync`; the
+source-library matching (`drive_match.py`, `delete_list.py`) and reports read Fourier's
+database and stay scripts for now. Its output can feed `plan --replace`.
+
+## Possible later work
+
+A TUI or small web page for reviewing plans; more devices (SDS samplers, which Elektroid
+supports); recording measured transfer speed per device.
