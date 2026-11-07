@@ -1,7 +1,7 @@
 # Fourier config, written by fourier setup on 2026-10-26.
 # fourier config show prints what it resolves to; fourier doctor checks it.
 library = ["/Users/jules/Music/Ableton/User Library/Samples/sample packs/2024", "/Users/jules/Music/Ableton/User Library/Samples/sample packs/2025", "/Users/jules/Music/Ableton/User Library/Samples/sample packs/2026", "/Users/jules/Music/Ableton/User Library/Samples/sample packs/old"]     # the year folders of sample packs (read, never written); each pack folder is a vendor
-devices = ["digitakt_2_50", "generic_folder", "generic_folder_3", "digitakt_2_50_3"]     # fourier devices list; fourier devices show <id>
+devices = ["digitakt_2_50", "generic_folder", "generic_folder_3", "digitakt_2_50_3", "generic_folder_4", "digitakt_2_50_4"]     # fourier devices list; fourier devices show <id>
 preset = "balanced"        # the style: balanced, ambient-cinematic, breaks-acid, hiphop-lofi, house-techno, trap, or a file
 vendors = "auto"         # a library's layout decides its vendors (first-folder: vendor/pack/...)
 fold = "auto"            # half- and double-time loops fold into the style's tempo range (or "off")

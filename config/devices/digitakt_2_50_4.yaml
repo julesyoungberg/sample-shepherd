@@ -1,0 +1,8 @@
+# Digitakt II, 50 files a folder, four folder levels: SECTION/CATEGORY/group/family.
+# Checked 2026-11-07 on OS 1.15: the +Drive's factory content already used four folder levels, and folders
+# made and moved with elektroid-cli list normally (not yet browsed on the device itself). Sections: curate_config.CATEGORY_SECTIONS (patch 0009).
+id: digitakt_2_50_4
+extends: digitakt_2_50
+name: Elektron Digitakt 2 (50 files a folder, four levels)
+paths:
+  folder_depth: {value: 4, status: convention}        # user's choice (Fourier patch 0004)

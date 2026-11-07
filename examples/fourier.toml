@@ -9,7 +9,7 @@
 library = ["~/Music/Sample Packs"]
 
 # Device profiles to render for (`sample-shepherd export profiles` lists them).
-devices = ["generic_folder_3", "digitakt_2_50_3"]
+devices = ["generic_folder_3", "digitakt_2_50_3", "generic_folder_4", "digitakt_2_50_4"]
 
 preset = "balanced"   # balanced, ambient-cinematic, breaks-acid, hiphop-lofi, house-techno, trap, or a file
 vendors = "auto"

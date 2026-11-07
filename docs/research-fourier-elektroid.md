@@ -22,7 +22,7 @@ Read-only research, 2026-11-07. Sources: `github.com/bvk7787/fourier-samples` at
 - **Our config needs the patched Fourier.** Stock Fourier rejects our overlay (`unknown
   tunable 'FOLDER_ADAPTIVE'`, `layers.py:172`), and three-level folders come from patch 0004.
   So `organize` needs a documented "patched install": clone at `131ee62`, `git am
-  config/patches/*.patch`, `uv sync`. All 8 patches still apply cleanly to upstream `main`
+  config/patches/*.patch`, `uv sync`. All 8 patches (0001–0008; 0009 came later) still apply cleanly to upstream `main`
   (checked with `git am`).
 - **Elektron sample sync is possible on Digitakt I/II, Rytm I/II and Model:Samples**
   (+Drive `sample` filesystem, project packages that list the samples they use). Syntakt has
@@ -79,7 +79,7 @@ profiles. Our `sync` layer covers what Fourier doesn't: MIDI devices through Ele
 Not recommended: vendoring (the brief rules it out, and it's 0.x moving code), or
 importing internals (the patches show how much is internal).
 
-### Carrying the 8 patches
+### Carrying the patches
 
 Keep them as `git format-patch` output in `config/patches/` (they already are), and add:
 
