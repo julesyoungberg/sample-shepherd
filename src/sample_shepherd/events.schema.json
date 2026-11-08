@@ -55,7 +55,7 @@
     {
       "properties": {
         "type": {"const": "error"},
-        "code": {"enum": ["user_error", "device_busy", "device_error", "stopped"]},
+        "code": {"enum": ["user_error", "device_busy", "device_error", "stopped", "internal"]},
         "msg": {"type": "string"},
         "exit": {"type": "integer"}
       },

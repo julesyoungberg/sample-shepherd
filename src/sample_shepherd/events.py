@@ -39,8 +39,13 @@ class Events:
     def emit(self, type: str, **fields: object) -> None:
         if self._stream is None:
             return
-        self._stream.write(json.dumps({"v": VERSION, "type": type, **fields}) + "\n")
-        self._stream.flush()
+        try:
+            self._stream.write(json.dumps({"v": VERSION, "type": type, **fields}) + "\n")
+            self._stream.flush()
+        except BrokenPipeError:
+            # The reader (the app) has gone, e.g. on cancel. Stop writing; the command
+            # carries on and its exit code is unchanged.
+            self._stream = None
 
 
 @contextmanager
@@ -53,7 +58,10 @@ def json_mode() -> Iterator[Events]:
     try:
         yield Events(stream)
     finally:
-        stream.close()
+        try:
+            stream.close()
+        except BrokenPipeError:
+            pass
         sys.stdout = saved_stdout
         os.dup2(saved_fd1, 1)
         os.close(saved_fd1)

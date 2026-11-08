@@ -106,12 +106,14 @@ def _tool_version(exe: str, cfg) -> str | None:
 
 
 def cmd_tools(cfg, a) -> int:
+    import os
     import shutil
     from sample_shepherd.organize import fourier
     # elektroid-cli is only located, never run: running it could talk to a connected device.
     elektroid = cfg.elektroid_cli
     found = {
-        "elektroid-cli": (elektroid if Path(elektroid).is_file() else None) if "/" in elektroid
+        "elektroid-cli": (elektroid if os.access(elektroid, os.X_OK) and Path(elektroid).is_file() else None)
+        if "/" in elektroid
         else shutil.which(elektroid),
         "fourier": fourier.resolve_command(cfg),
     }
@@ -667,4 +669,7 @@ def _run(a) -> int:
         from sample_shepherd.sync.device import DeviceError
         if isinstance(e, DeviceError):
             return _fail(a, "device_error", f"device error: {e}", 3)
+        # A bug: tell the app the run is over, then let the traceback go to stderr.
+        a.error = "internal"
+        a.events.emit("error", code="internal", msg=f"{type(e).__name__}: {e}", exit=1)
         raise

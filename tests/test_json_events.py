@@ -80,3 +80,25 @@ def test_human_output_goes_to_stderr(run_json):
     code, evs, err = run_json("config", "show")
     assert code == 0 and "work_dir:" in err
     assert evs[0] == {"v": 1, "type": "start", "cmd": "config show", "dry_run": False}
+
+
+def test_a_crash_still_ends_the_stream_with_an_error(monkeypatch, capfd):
+    def boom(cfg, a):
+        raise RuntimeError("a bug")
+    monkeypatch.setattr("sample_shepherd.cli.cmd_tools", boom)
+    with pytest.raises(RuntimeError):
+        main(["--json", "tools"])
+    evs = [json.loads(line) for line in capfd.readouterr().out.splitlines()]
+    jsonschema.validate(evs[-1], SCHEMA)
+    assert evs[-1]["code"] == "internal" and "a bug" in evs[-1]["msg"]
+
+
+def test_a_closed_reader_ends_quietly(tmp_path):
+    read_end, write_end = os.pipe()
+    os.close(read_end)          # the app has gone away before the CLI writes anything
+    env = {**os.environ, "XDG_CONFIG_HOME": str(tmp_path)}
+    env.pop("SAMPLE_SHEPHERD_CONFIG", None)
+    r = subprocess.run([sys.executable, "-m", "sample_shepherd", "--json", "tools"], stdout=write_end,
+                       stderr=subprocess.PIPE, text=True, cwd=tmp_path, env=env)
+    os.close(write_end)
+    assert r.returncode == 0 and "Traceback" not in r.stderr and "BrokenPipe" not in r.stderr

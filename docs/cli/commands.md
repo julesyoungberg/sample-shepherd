@@ -183,8 +183,12 @@ This is how the desktop app runs the CLI. The shapes are in
 
 - `v` is the schema version. It changes when an event changes in a way that breaks a reader.
 - Every run starts with `start` and ends with either `result` or `error` (`code` is one of
-  `user_error`, `device_busy`, `device_error`, `stopped`). Exit codes are the same as without
-  `--json`.
+  `user_error`, `device_busy`, `device_error`, `stopped`, or `internal` for a bug, whose
+  traceback goes to stderr). Exit codes are the same as without `--json`.
+- The one exception: bad arguments are rejected before any event is written, so stdout is
+  empty and the exit code is 2. The usage message is on stderr.
+- If the reader closes its end of the pipe, the CLI stops writing events and finishes
+  quietly.
 - `row` events carry a command's data. Today only `tools` sends them; the other commands send
   `start` and `result` or `error`, and their human text on stderr.
 - Anything else that writes to stdout (a stray print, Fourier, any child process) is sent to
