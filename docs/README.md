@@ -18,6 +18,11 @@ install it. These pages go further.
 Not built yet; the plan is in `desktop-app-plan.md`. Its guides will go in `docs/app/`, one
 page per task, with screenshots in `docs/app/images/`, next to the CLI pages above.
 
+## Plans
+
+- [Roadmap](roadmap.md): what's planned next, including the landing page in `site/`
+  and publishing.
+
 ## Extending it
 
 - [Adding a device profile](adding-a-profile.md): render for a sampler or layout we don't ship.
