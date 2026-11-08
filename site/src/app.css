@@ -1,0 +1,62 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/instrument-sans';
+
+/*
+  Design tokens from the "field manual" direction in docs/desktop-app-plan.md:
+  paper and ink, one signal color, hairlines instead of shadows. The desktop app will
+  define the same tokens, so the site and the app look like one product.
+  Departure Mono isn't on npm; until we ship its font files, the mono stack falls back
+  to the system's monospace font.
+*/
+@theme {
+  --color-paper: #f3f0e8;
+  --color-ink: #16150f;
+  --color-ink-soft: #57544a;
+  --color-rule: #cfcabd;
+  --color-signal: #ff4a1c;
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Departure Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-paper: #121110;
+    --color-ink: #ece8dd;
+    --color-ink-soft: #a29d90;
+    --color-rule: #34312b;
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
+  a { text-decoration: underline; text-underline-offset: 3px; }
+  a:hover { color: var(--color-signal); }
+  :focus-visible { outline: 2px solid var(--color-signal); outline-offset: 2px; }
+}
+
+/* Small-caps mono label used for section numbers, like a device's folder names. */
+@utility label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+
+/* Diagonal hatch: marks a placeholder (screenshots, demo) without needing color. */
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 9px,
+    var(--color-rule) 9px 10px
+  );
+}
