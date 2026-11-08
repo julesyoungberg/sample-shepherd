@@ -9,6 +9,7 @@ and its projects safe. Every flag is in the [command reference](reference.md);
 | Command | What it does | Writes / touches |
 |---|---|---|
 | `config show` / `config init` | Settings in effect / write a starter config | `init`: the config file (never overwrites) |
+| `tools` | Which helper tools (`elektroid-cli`, `fourier`) are installed, and what each is needed for | nothing |
 | `organize doctor` | Is Fourier installed and configured? | nothing |
 | `organize build` | Runs `fourier build` | Fourier's outputs |
 | `organize patches` | Lists our patches to Fourier | nothing |
@@ -38,6 +39,9 @@ and its projects safe. Every flag is in the [command reference](reference.md);
   stop with an error if another sample-shepherd process has it. They can't see other
   programs: close Elektron Transfer and don't run `elektroid-cli` by hand meanwhile.
 - **Your source library is read-only.** Fourier reads it; nothing writes to it.
+- **`--json` for programs.** Put `--json` before the command (`sample-shepherd --json
+  tools`) and stdout carries only JSON events, one per line; the human text goes to stderr.
+  See [JSON output](#json-output).
 
 ## config
 
@@ -159,6 +163,32 @@ and ratings only; never audio, the library or a device. Details and how to read 
 - `eval sample` draws random placed samples from each category of a master into a sheet with
   the category left blank, so you aren't anchored by Fourier's pick. Fill it in by ear, then
   pass it as `--labels`.
+
+## tools
+
+Shows where `elektroid-cli` and `fourier` are, Fourier's version, and which commands need
+each. It finds `elektroid-cli` but never runs it, so it can't disturb a connected device.
+
+## JSON output
+
+With `--json`, every command writes one JSON object per line to stdout and nothing else.
+This is how the desktop app runs the CLI. The shapes are in
+[`src/sample_shepherd/events.schema.json`](../../src/sample_shepherd/events.schema.json):
+
+```json
+{"v": 1, "type": "start", "cmd": "tools", "dry_run": false}
+{"v": 1, "type": "row", "kind": "tool", "name": "fourier", "found": true, "path": "/usr/local/bin/fourier", "version": "fourier 0.1.2", "enables": ["organize", "export render"]}
+{"v": 1, "type": "result", "ok": true, "exit": 0, "summary": {"missing": []}}
+```
+
+- `v` is the schema version. It changes when an event changes in a way that breaks a reader.
+- Every run starts with `start` and ends with either `result` or `error` (`code` is one of
+  `user_error`, `device_busy`, `device_error`, `stopped`). Exit codes are the same as without
+  `--json`.
+- `row` events carry a command's data. Today only `tools` sends them; the other commands send
+  `start` and `result` or `error`, and their human text on stderr.
+- Anything else that writes to stdout (a stray print, Fourier, any child process) is sent to
+  stderr instead, so the stream always parses.
 
 ## Dry runs and the device
 

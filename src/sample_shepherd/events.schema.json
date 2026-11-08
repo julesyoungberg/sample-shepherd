@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sample-shepherd/events.schema.json",
+  "title": "sample-shepherd --json event",
+  "description": "One line of `sample-shepherd --json <command>` stdout. See src/sample_shepherd/events.py.",
+  "type": "object",
+  "required": ["v", "type"],
+  "properties": {
+    "v": {"const": 1},
+    "type": {"enum": ["start", "row", "warn", "result", "error"]}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": {"const": "start"},
+        "cmd": {"type": "string", "description": "the command, e.g. \"config show\""},
+        "dry_run": {"type": "boolean"}
+      },
+      "required": ["cmd", "dry_run"]
+    },
+    {
+      "properties": {
+        "type": {"const": "row"},
+        "kind": {"type": "string", "description": "what the row describes; the other fields depend on it"}
+      },
+      "required": ["kind"],
+      "if": {"properties": {"kind": {"const": "tool"}}},
+      "then": {
+        "properties": {
+          "name": {"type": "string"},
+          "found": {"type": "boolean"},
+          "path": {"type": ["string", "null"]},
+          "version": {"type": ["string", "null"]},
+          "enables": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["name", "found", "path", "version", "enables"]
+      }
+    },
+    {
+      "properties": {
+        "type": {"const": "warn"},
+        "msg": {"type": "string"}
+      },
+      "required": ["msg"]
+    },
+    {
+      "properties": {
+        "type": {"const": "result"},
+        "ok": {"type": "boolean"},
+        "exit": {"type": "integer", "description": "the process exit code"},
+        "summary": {"type": "object", "description": "command-specific counts and lists"}
+      },
+      "required": ["ok", "exit", "summary"]
+    },
+    {
+      "properties": {
+        "type": {"const": "error"},
+        "code": {"enum": ["user_error", "device_busy", "device_error", "stopped"]},
+        "msg": {"type": "string"},
+        "exit": {"type": "integer"}
+      },
+      "required": ["code", "msg", "exit"]
+    }
+  ]
+}

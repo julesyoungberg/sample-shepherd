@@ -17,6 +17,7 @@ These go before the command: `sample-shepherd --device 2 device info`.
 | `--work-dir WORK_DIR` | where backups and logs go by default |
 | `--device DEVICE` | device number (from `sample-shepherd device ls`) |
 | `--elektroid-cli ELEKTROID_CLI` | path to elektroid-cli |
+| `--json` | write JSON events to stdout, one per line, and human text to stderr |
 
 ## `config`
 
@@ -196,6 +197,12 @@ Carry out a plan on the device (resumable).
 | `--log LOG` | log CSV (default: &lt;plan&gt;-log.csv); a rerun skips what it lists as done |
 | `--yes` | go ahead with the plan's deletes |
 | `--no-delete` | only upload |
+
+## `tools`
+
+Show which helper tools (elektroid-cli, fourier) are installed.
+
+No options.
 
 ## `eval`
 
