@@ -247,7 +247,7 @@ sample-shepherd --help`;
   <div class="mx-auto grid max-w-5xl gap-8 px-4 py-10 text-sm md:grid-cols-[1fr_2fr]">
     <div>
       <p class="font-mono font-bold">sample-shepherd</p>
-      <p class="mt-2 text-ink-soft">By Jules Youngberg. License to be announced.</p>
+      <p class="mt-2 text-ink-soft">By Light Lens. License to be announced.</p>
       <p class="mt-2"><a href={REPO}>Source on GitHub</a></p>
     </div>
     <div>
