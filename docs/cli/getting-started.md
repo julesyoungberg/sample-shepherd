@@ -30,6 +30,7 @@ with `[fourier] env = { FOURIER_HOME = "...", FOURIER_CONFIG = "/path/to/fourier
 Or run Fourier's own `fourier setup`, which asks the same questions.
 
 ```bash
+sample-shepherd tools                        # elektroid-cli and fourier found?
 sample-shepherd organize doctor              # Fourier found and configured?
 sample-shepherd organize build --dry-run     # what a build would do; writes nothing
 sample-shepherd organize build               # scan, analyze, build and verify (resumable; long the first time)

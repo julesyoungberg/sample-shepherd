@@ -8,9 +8,11 @@
   sample-shepherd sync       carry out a plan (resumable)
   sample-shepherd config     show | init
   sample-shepherd eval       categories | import-ratings | sample
+  sample-shepherd tools      which helper tools are installed
 
 Every command that writes files or touches a device takes --dry-run. Commands that delete
-print the plan and need --yes.
+print the plan and need --yes. With --json (before the command), stdout is one JSON event
+per line (see src/sample_shepherd/events.schema.json) and human text goes to stderr.
 """
 from __future__ import annotations
 
@@ -19,7 +21,7 @@ import datetime as dt
 import sys
 from pathlib import Path
 
-from sample_shepherd import __version__, config as config_mod
+from sample_shepherd import __version__, config as config_mod, events
 from sample_shepherd.util import DeviceBusy, device_lock, fmt_bytes, fmt_duration, estimate_seconds, write_csv
 
 
@@ -79,6 +81,54 @@ def cmd_config_init(cfg, a) -> int:
     elif cfg.path and Path(cfg.path).resolve() != target.resolve():
         _out(f"note: {cfg.path} is the config in effect here and takes precedence over {target} "
              f"(lookup order: --config, ${config_mod.ENV_VAR}, ./sample-shepherd.toml, then this file)")
+    return 0
+
+
+# ----------------------------------------------------------------------------- tools
+
+#: what each external tool is needed for, shown by `tools` and the app's setup screen
+TOOL_USES = {
+    "elektroid-cli": ["device", "projects", "sync"],
+    "fourier": ["organize", "export render"],
+}
+
+
+def _tool_version(exe: str, cfg) -> str | None:
+    import subprocess
+    from sample_shepherd.organize import fourier
+    try:
+        r = subprocess.run([exe, "--version"], capture_output=True, text=True, timeout=30,
+                           env=fourier.env_for(cfg))
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    first = (r.stdout or r.stderr).strip().splitlines()
+    return first[0] if r.returncode == 0 and first else None
+
+
+def cmd_tools(cfg, a) -> int:
+    import os
+    import shutil
+    from sample_shepherd.organize import fourier
+    # elektroid-cli is only located, never run: running it could talk to a connected device.
+    elektroid = cfg.elektroid_cli
+    found = {
+        "elektroid-cli": (elektroid if os.access(elektroid, os.X_OK) and Path(elektroid).is_file() else None)
+        if "/" in elektroid
+        else shutil.which(elektroid),
+        "fourier": fourier.resolve_command(cfg),
+    }
+    missing = []
+    for name, uses in TOOL_USES.items():
+        path = found[name]
+        version = _tool_version(path, cfg) if path and name == "fourier" else None
+        if path is None:
+            missing.append(name)
+        _out(f"{name:14} {path or 'NOT FOUND'}{f'  ({version})' if version else ''}  needed for: {', '.join(uses)}")
+        a.events.emit("row", kind="tool", name=name, found=path is not None, path=path,
+                      version=version, enables=uses)
+    if missing:
+        _out("See docs/cli/getting-started.md for how to install them.")
+    a.events.summary["missing"] = missing
     return 0
 
 
@@ -472,6 +522,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--work-dir", help="where backups and logs go by default")
     ap.add_argument("--device", help="device number (from `sample-shepherd device ls`)")
     ap.add_argument("--elektroid-cli", help="path to elektroid-cli")
+    ap.add_argument("--json", dest="json_events", action="store_true",
+                    help="write JSON events to stdout, one per line, and human text to stderr")
     sub = ap.add_subparsers(dest="cmd", required=True, metavar="command")
 
     def add(parent, name, fn, help, dry=False):
@@ -544,6 +596,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--yes", action="store_true", help="go ahead with the plan's deletes")
     p.add_argument("--no-delete", action="store_true", help="only upload")
 
+    add(sub, "tools", cmd_tools, "show which helper tools (elektroid-cli, fourier) are installed")
+
     ev = sub.add_parser("eval", help="measure category sorting against hand-labeled samples").add_subparsers(dest="sub", required=True)
     p = add(ev, "categories", cmd_eval_categories,
             "score baselines and real systems (e.g. a Fourier manifest) on a label set (reads only)", dry=True)
@@ -576,15 +630,37 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
+    if not a.json_events:
+        a.events = events.Events()
+        return _run(a)
+    with events.json_mode() as ev:
+        a.events = ev
+        ev.emit("start", cmd=" ".join(x for x in (a.cmd, getattr(a, "sub", None)) if x),
+                dry_run=bool(getattr(a, "dry_run", False)))
+        code = _run(a)
+        if not a.error:
+            ev.emit("result", ok=code == 0, exit=code, summary=ev.summary)
+        return code
+
+
+def _fail(a, code: str, msg: str, exit: int) -> int:
+    _err(msg)
+    a.error = code
+    a.events.emit("error", code=code, msg=msg, exit=exit)
+    return exit
+
+
+def _run(a) -> int:
+    a.error = None
     try:
         cfg = load_config(a)
         return a.fn(cfg, a) or 0
-    except (UserError, DeviceBusy, FileNotFoundError, ValueError) as e:
-        _err(f"error: {e}")
-        return 2
+    except DeviceBusy as e:
+        return _fail(a, "device_busy", f"error: {e}", 2)
+    except (UserError, FileNotFoundError, ValueError) as e:
+        return _fail(a, "user_error", f"error: {e}", 2)
     except KeyboardInterrupt:
-        _err("stopped. Logged work is kept; rerun to resume.")
-        return 130
+        return _fail(a, "stopped", "stopped. Logged work is kept; rerun to resume.", 130)
     except BrokenPipeError:          # output piped into `head` etc.
         import os
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
@@ -592,6 +668,8 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as e:  # device errors etc.
         from sample_shepherd.sync.device import DeviceError
         if isinstance(e, DeviceError):
-            _err(f"device error: {e}")
-            return 3
+            return _fail(a, "device_error", f"device error: {e}", 3)
+        # A bug: tell the app the run is over, then let the traceback go to stderr.
+        a.error = "internal"
+        a.events.emit("error", code="internal", msg=f"{type(e).__name__}: {e}", exit=1)
         raise

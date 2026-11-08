@@ -17,7 +17,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "jsonschema>=4"]
 # Stock Fourier from PyPI. Our own profiles and overlay need the patched build instead:
 # see `sample-shepherd organize install-fourier`.
 organize = ["fourier-samples>=0.1.2,<0.2"]
