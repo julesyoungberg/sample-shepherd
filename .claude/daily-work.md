@@ -20,3 +20,16 @@ triggers share this file). Newest last.
 - Open questions for Jules (from docs/desktop-app-plan.md, still open): design direction
   (field manual vs console), bundling Fourier, Apple Developer ID, Windows in v1, license.
 - Budget: first run, no change.
+
+## 2026-11-09 (Monday, weekday run)
+
+- Minutes used: about 25 of 60 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Stream plan rows and totals as --json events" (desktop app plan, CLI piece 4,
+  first half): `plan --json` row events, `plan.totals()`, schema, docs, one test.
+- State found: tests green on main, no open PRs or issues. PR #12 merged.
+- Next: `sync --json` progress events and cooperative stop on stdin (the plan's "Cancel is
+  cooperative"), then `plan edit` (needs row ids), then `library index`. App scaffold and
+  the /dev/style page after that.
+- Open questions for Jules (docs/desktop-app-plan.md, still open): design direction, bundling
+  Fourier, Apple Developer ID, Windows in v1, license.
+- Budget: only two runs logged, no change.
