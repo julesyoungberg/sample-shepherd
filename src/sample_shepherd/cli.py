@@ -384,6 +384,10 @@ def cmd_plan(cfg, a) -> int:
     except plan.PlanError as e:
         raise UserError(str(e)) from None
     _out(plan.summarize(rows, cfg.transfer))
+    for r in plan.ordered(rows):
+        a.events.emit("row", kind="plan", action=r.action, device_path=r.device_path,
+                      local_path=r.local_path, size=r.size, reason=r.reason, hash=r.hash)
+    a.events.summary.update(plan.totals(rows, cfg.transfer), out=None if a.dry_run else a.out)
     if a.dry_run:
         _out(f"(dry run: would write {a.out})")
         return 0

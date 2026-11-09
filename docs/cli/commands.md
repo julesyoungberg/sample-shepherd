@@ -189,8 +189,13 @@ This is how the desktop app runs the CLI. The shapes are in
   empty and the exit code is 2. The usage message is on stderr.
 - If the reader closes its end of the pipe, the CLI stops writing events and finishes
   quietly.
-- `row` events carry a command's data. Today only `tools` sends them; the other commands send
-  `start` and `result` or `error`, and their human text on stderr.
+- `row` events carry a command's data. Two commands send them so far:
+  - `tools`: one `"kind": "tool"` row per tool (above).
+  - `plan`: one `"kind": "plan"` row per plan row, with the plan CSV's columns and in its
+    order. The `result` summary has counts per action, `upload_bytes`, `delete_bytes`,
+    `folders`, `est_seconds`, and `out` (the plan CSV, or `null` on a dry run).
+
+  The other commands send `start` and `result` or `error`, and their human text on stderr.
 - Anything else that writes to stdout (a stray print, Fourier, any child process) is sent to
   stderr instead, so the stream always parses.
 

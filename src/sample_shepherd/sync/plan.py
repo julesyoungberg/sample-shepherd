@@ -152,29 +152,43 @@ def make_plan(listing: list[Listed], used: list[UsedSample] | None, render: Path
     return rows
 
 
-def summarize(rows: list[PlanRow], transfer) -> str:
-    from sample_shepherd.util import estimate_seconds, fmt_bytes, fmt_duration
+def totals(rows: list[PlanRow], transfer) -> dict[str, int | float]:
+    """Counts per action, upload and delete bytes, upload folders, and the estimated time."""
+    from sample_shepherd.util import estimate_seconds
     counts = collections.Counter(r.action for r in rows)
     up = [r for r in rows if r.action == "upload"]
     dl = [r for r in rows if r.action == "delete"]
     up_bytes = sum(r.size or 0 for r in up)
-    dl_bytes = sum(r.size or 0 for r in dl)
     folders = {r.device_path.rsplit("/", 1)[0] for r in up}
     est = estimate_seconds(up_bytes, len(up) + len(folders) * 2 + len(dl), transfer.bytes_per_second,
                            transfer.seconds_per_call)
-    lines = [f"upload {len(up)} files ({fmt_bytes(up_bytes)}) into {len(folders)} folders",
-             f"delete {len(dl)} files (about {fmt_bytes(dl_bytes)})"]
+    return {"upload": len(up), "upload_bytes": up_bytes, "folders": len(folders),
+            "delete": len(dl), "delete_bytes": sum(r.size or 0 for r in dl),
+            **{k: counts[k] for k in ("skip-exists", "keep-used", "keep-protected", "skip-missing")},
+            "est_seconds": est}
+
+
+def summarize(rows: list[PlanRow], transfer) -> str:
+    from sample_shepherd.util import fmt_bytes, fmt_duration
+    t = totals(rows, transfer)
+    lines = [f"upload {t['upload']} files ({fmt_bytes(t['upload_bytes'])}) into {t['folders']} folders",
+             f"delete {t['delete']} files (about {fmt_bytes(t['delete_bytes'])})"]
     for k in ("skip-exists", "keep-used", "keep-protected", "skip-missing"):
-        if counts[k]:
-            lines.append(f"{k}: {counts[k]}")
-    lines.append(f"estimated time: about {fmt_duration(est)} "
+        if t[k]:
+            lines.append(f"{k}: {t[k]}")
+    lines.append(f"estimated time: about {fmt_duration(t['est_seconds'])} "
                  f"(at {transfer.bytes_per_second / 1000:.0f} KB/s + {transfer.seconds_per_call} s per call)")
     return "\n".join(lines)
 
 
-def write_plan(rows: list[PlanRow], out: Path) -> None:
+def ordered(rows: list[PlanRow]) -> list[PlanRow]:
+    """Uploads, then deletes, then everything else; by device path within each."""
     order = {"upload": 0, "delete": 1}
-    write_csv(out, HEADER, (r.as_list() for r in sorted(rows, key=lambda r: (order.get(r.action, 2), r.device_path))))
+    return sorted(rows, key=lambda r: (order.get(r.action, 2), r.device_path))
+
+
+def write_plan(rows: list[PlanRow], out: Path) -> None:
+    write_csv(out, HEADER, (r.as_list() for r in ordered(rows)))
 
 
 def load_plan(path: Path) -> list[PlanRow]:
