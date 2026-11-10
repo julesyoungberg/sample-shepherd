@@ -1,10 +1,12 @@
 """sync is the last guard before an irreversible delete, so it re-checks every delete row
 the way plan does, even when the plan CSV was hand-edited or is stale."""
+import pytest
+
 from sample_shepherd.sync.device import Device, DeviceError, Entry
 from sample_shepherd.sync.plan import PlanRow
 from sample_shepherd.sync.projects import UsedSample
 from sample_shepherd.sync.run import run_sync
-from sample_shepherd.util import read_csv
+from sample_shepherd.util import StopRequested, read_csv
 
 
 class MemoryDevice(Device):
@@ -78,3 +80,28 @@ def test_ls_error_is_a_failure_not_a_missing_folder(tmp_path):
     assert stats["failed"] == 1 and stats["uploaded"] == 1
     assert dev.made == ["/NEW"]                       # /KICKS exists: never re-made, never uploaded into blind
     assert dev.uploaded == [("BD 01.wav", "/NEW")]
+
+
+class RecordingDevice(MemoryDevice):
+    def __init__(self):
+        super().__init__({})
+        self.uploaded = []
+
+    def upload(self, local, dest_dir):
+        self.uploaded.append(local.name)
+        self.files[f"{dest_dir}/{local.stem}"] = "1"
+
+
+def test_a_stop_request_ends_the_sync_between_files_and_a_rerun_resumes(tmp_path):
+    rows = []
+    for name in ("BD 01", "BD 02", "BD 03"):
+        (tmp_path / f"{name}.wav").write_bytes(b"x")
+        rows.append(PlanRow("upload", f"/KICKS/{name}", str(tmp_path / f"{name}.wav"), 1))
+    dev = RecordingDevice()
+    with pytest.raises(StopRequested):
+        run_sync(dev, rows, tmp_path / "log.csv", None, do_delete=False, out=lambda m: None,
+                 stop=lambda: len(dev.uploaded) == 1)
+    assert dev.uploaded == ["BD 01.wav"]                     # the file in flight finished, no more
+    assert [r["result"] for r in read_csv(tmp_path / "log.csv")] == ["ok"]
+    stats = run_sync(dev, rows, tmp_path / "log.csv", None, do_delete=False, out=lambda m: None)
+    assert dev.uploaded == ["BD 01.wav", "BD 02.wav", "BD 03.wav"] and stats["already_done"] == 1

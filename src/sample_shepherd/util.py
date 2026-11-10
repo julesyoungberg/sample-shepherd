@@ -89,6 +89,10 @@ class DeviceBusy(RuntimeError):
     pass
 
 
+class StopRequested(Exception):
+    """The user asked a long command to stop (the app's Stop button). Logged work is kept."""
+
+
 @contextlib.contextmanager
 def device_lock(lock_file: Path) -> Iterator[None]:
     """Only one process may talk to a device at a time: concurrent MIDI access can corrupt a

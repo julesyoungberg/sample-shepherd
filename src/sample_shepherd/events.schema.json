@@ -7,7 +7,7 @@
   "required": ["v", "type"],
   "properties": {
     "v": {"const": 1},
-    "type": {"enum": ["start", "row", "warn", "result", "error"]}
+    "type": {"enum": ["start", "row", "progress", "warn", "result", "error"]}
   },
   "oneOf": [
     {
@@ -35,6 +35,17 @@
         },
         "required": ["name", "found", "path", "version", "enables"]
       }
+    },
+    {
+      "description": "sync: sent after each upload; stop it with a {\"type\": \"stop\"} line on stdin",
+      "properties": {
+        "type": {"const": "progress"},
+        "done": {"type": "integer", "description": "uploads finished this run (sent, skipped or failed)"},
+        "total": {"type": "integer", "description": "uploads to do this run, not counting ones the log has as done"},
+        "bytes": {"type": "integer", "description": "bytes sent this run"},
+        "eta_s": {"type": ["integer", "null"], "description": "estimated seconds left; null until something is sent"}
+      },
+      "required": ["done", "total", "bytes", "eta_s"]
     },
     {
       "properties": {
