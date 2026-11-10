@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 from sample_shepherd import __version__, config as config_mod, events
-from sample_shepherd.util import DeviceBusy, device_lock, fmt_bytes, fmt_duration, estimate_seconds, write_csv
+from sample_shepherd.util import DeviceBusy, StopRequested, device_lock, fmt_bytes, fmt_duration, estimate_seconds, write_csv
 
 
 class UserError(Exception):
@@ -417,11 +417,18 @@ def cmd_sync(cfg, a) -> int:
         if not used:
             raise UserError("deleting needs --used (the CSV from `projects used`), checked again before each delete")
     log = Path(a.log) if a.log else Path(a.plan).with_name(Path(a.plan).stem + "-log.csv")
+    stop = events.watch_for_stop(sys.stdin).is_set if a.events.enabled else (lambda: False)
+
+    def progress(done, total, sent, eta_s):
+        a.events.emit("progress", done=done, total=total, bytes=sent, eta_s=eta_s)
+
     with device_lock(cfg.lock_file):
         try:
-            stats = run.run_sync(_device(cfg), rows, log, used, do_delete, out=_out, protected=cfg.protected)
+            stats = run.run_sync(_device(cfg), rows, log, used, do_delete, out=_out, protected=cfg.protected,
+                                 stop=stop, progress=progress)
         except run.SyncStopped as e:
             raise UserError(str(e)) from None
+    a.events.summary.update(stats, log=str(log))
     _out("done: " + ", ".join(f"{k} {v}" for k, v in stats.items()) + f"  (log: {log})")
     return 1 if stats["failed"] else 0
 
@@ -663,7 +670,7 @@ def _run(a) -> int:
         return _fail(a, "device_busy", f"error: {e}", 2)
     except (UserError, FileNotFoundError, ValueError) as e:
         return _fail(a, "user_error", f"error: {e}", 2)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, StopRequested):
         return _fail(a, "stopped", "stopped. Logged work is kept; rerun to resume.", 130)
     except BrokenPipeError:          # output piped into `head` etc.
         import os

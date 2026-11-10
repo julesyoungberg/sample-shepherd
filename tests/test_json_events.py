@@ -120,3 +120,33 @@ def test_a_closed_reader_ends_quietly(tmp_path):
                        stderr=subprocess.PIPE, text=True, cwd=tmp_path, env=env)
     os.close(write_end)
     assert r.returncode == 0 and "Traceback" not in r.stderr and "BrokenPipe" not in r.stderr
+
+
+def test_sync_reports_progress_and_stops_between_files_when_asked(tmp_path, fake_device):
+    """The app's view of a sync: progress after each file, and a stop line on stdin ends the
+    run after the file in flight, through the usual "stopped, rerun to resume" exit."""
+    from conftest import make_wav
+    lines = ["action,device_path,local_path,size,reason,hash"]
+    for i in range(6):
+        wav = make_wav(tmp_path / "export" / f"BD {i}.wav")
+        lines.append(f"upload,/KICKS/BD {i},{wav},{wav.stat().st_size},new,")
+    (tmp_path / "plan.csv").write_text("\n".join(lines) + "\n")
+    env = {**os.environ, "XDG_CONFIG_HOME": str(tmp_path / "xdg")}
+    env.pop("SAMPLE_SHEPHERD_CONFIG", None)
+    p = subprocess.Popen([sys.executable, "-m", "sample_shepherd", "--json", "--elektroid-cli", str(FAKE_CLI),
+                          "sync", "--plan", str(tmp_path / "plan.csv")],
+                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                         cwd=tmp_path, env=env)
+    evs = []
+    for line in p.stdout:
+        evs.append(json.loads(line))
+        jsonschema.validate(evs[-1], SCHEMA)
+        if evs[-1]["type"] == "progress" and evs[-1]["done"] == 1:
+            p.stdin.write('{"type": "stop"}\n')
+            p.stdin.flush()
+    assert p.wait() == 130, p.stderr.read()
+    progress = [e for e in evs if e["type"] == "progress"]
+    assert progress[0]["total"] == 6 and progress[0]["bytes"] > 0
+    assert evs[-1]["type"] == "error" and evs[-1]["code"] == "stopped"
+    uploaded = len(list((fake_device / "drive" / "KICKS").iterdir()))
+    assert uploaded == progress[-1]["done"] < 6

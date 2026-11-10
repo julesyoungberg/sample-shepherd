@@ -199,6 +199,16 @@ This is how the desktop app runs the CLI. The shapes are in
 - Anything else that writes to stdout (a stray print, Fourier, any child process) is sent to
   stderr instead, so the stream always parses.
 
+### Progress and stopping a sync
+
+- `sync` sends a `progress` event after each upload: `done` and `total` (uploads this run,
+  not counting ones the log already has as done), `bytes` sent, and `eta_s` (seconds left,
+  `null` until something is sent). Its `result` summary has the counts from the human
+  `done:` line and `log`, the log CSV.
+- To stop a sync, write `{"type": "stop"}` and a newline to its stdin. It finishes the file
+  in flight (never cutting `elektroid-cli` off mid-transfer), then ends with an `error`
+  event with `code` `stopped` and exit code 130, as Ctrl-C does. Rerun to resume.
+
 ## Dry runs and the device
 
 `--dry-run` never changes anything. For `device ls`, `device info` and `projects ls` it
