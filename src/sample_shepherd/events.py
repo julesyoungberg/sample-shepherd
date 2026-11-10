@@ -49,12 +49,14 @@ class Events:
             self._stream = None
 
 
-def watch_for_stop(stdin: IO[str]) -> threading.Event:
+def watch_for_stop(stdin: IO[str] | None) -> threading.Event:
     """Sets the returned flag when a `{"type": "stop"}` line arrives on stdin: the app's Stop
     button. A thread reads stdin because the command is busy (sync blocks in elektroid-cli
     during a transfer); the command checks the flag when it's safe to stop. Other lines are
     ignored."""
     flag = threading.Event()
+    if stdin is None:           # started with no stdin: nothing can ask to stop
+        return flag
 
     def read() -> None:
         for line in stdin:

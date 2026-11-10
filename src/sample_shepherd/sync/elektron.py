@@ -35,7 +35,8 @@ Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[bytes]"]
 
 def _subprocess_runner(args: Sequence[str]) -> "subprocess.CompletedProcess[bytes]":
     try:
-        return subprocess.run(list(args), capture_output=True)
+        # stdin is the app's control pipe in --json mode: a child must never read the stop line
+        return subprocess.run(list(args), capture_output=True, stdin=subprocess.DEVNULL)
     except FileNotFoundError:
         raise DeviceError(f"elektroid-cli not found: {args[0]!r}. Build it (see README, "
                           f"'Elektroid') and set [elektroid] cli in your config.") from None
