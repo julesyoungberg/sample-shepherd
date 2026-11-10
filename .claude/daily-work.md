@@ -21,15 +21,28 @@ triggers share this file). Newest last.
   (field manual vs console), bundling Fourier, Apple Developer ID, Windows in v1, license.
 - Budget: first run, no change.
 
+## 2026-11-09 (Monday, weekday run)
+
+- Minutes used: about 25 of 60 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Stream plan rows and totals as --json events" (desktop app plan, CLI piece 4,
+  first half): `plan --json` row events, `plan.totals()`, schema, docs, one test.
+- State found: tests green on main, no open PRs or issues. PR #12 merged.
+- Next: `sync --json` progress events and cooperative stop on stdin (the plan's "Cancel is
+  cooperative"), then `plan edit` (needs row ids), then `library index`. App scaffold and
+  the /dev/style page after that.
+- Open questions for Jules (docs/desktop-app-plan.md, still open): design direction, bundling
+  Fourier, Apple Developer ID, Windows in v1, license.
+- Budget: only two runs logged, no change.
+
 ## 2026-11-10 (Tuesday, weekday run)
 
 - Minutes used: about 30 of 60 (active work; review wait not counted). Subagents: 0.
 - Shipped: PR "Report sync progress and stop a sync from the app" (desktop app plan, CLI
   piece 1 and "Cancel is cooperative"): `progress` events, a `{"type": "stop"}` line on
   stdin stops `sync` between files, sync `result` summary, docs, two tests.
-- State found: tests green on main, no issues. PR #13 (plan rows, the 2026-11-09 run's) has
-  an approved review but isn't merged yet; left to its author. This PR and #13 both add to
-  `events.schema.json` and the JSON section of `docs/cli/commands.md`, in different places.
+- State found: tests green on main, no issues. PR #13 (plan rows, the 2026-11-09 run's) was
+  approved and left to its author; it merged during this run, and only this log needed a
+  hand merge.
 - Next: `plan edit` (needs row ids), then `library index`. App scaffold and the /dev/style
   page after that (the scaffold adds Node and Rust tooling, so check with Jules first).
 - Open questions for Jules (docs/desktop-app-plan.md, still open): design direction, bundling

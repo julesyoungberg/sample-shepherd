@@ -8,7 +8,7 @@ from pathlib import Path
 import jsonschema
 import pytest
 
-from conftest import FAKE_CLI
+from conftest import FAKE_CLI, make_wav
 from sample_shepherd import events
 from sample_shepherd.cli import main
 
@@ -67,6 +67,24 @@ def test_tools_names_what_is_missing(run_json, tmp_path):
     row = next(e for e in evs if e.get("name") == "fourier")
     assert code == 0 and not row["found"] and row["path"] is None and row["version"] is None
     assert evs[-1]["summary"] == {"missing": ["fourier"]}
+
+
+def test_plan_streams_each_row_and_totals(run_json, tmp_path):
+    make_wav(tmp_path / "render" / "01_KICKS" / "BD 01.wav")
+    make_wav(tmp_path / "render" / "01_KICKS" / "BD 02.wav")
+    (tmp_path / "listing.csv").write_text("path,size,hash\n/01_KICKS/BD 01,1000,0000000a\n/01_KICKS/OLD,500,0000000b\n")
+    (tmp_path / "used.csv").write_text("path,size,hash\n/elsewhere/X,10,0000000c\n")
+    code, evs, err = run_json("plan", "--listing", "listing.csv", "--export", "render", "--used", "used.csv",
+                              "--prune", "--out", "plan.csv", "--dry-run")
+    assert code == 0, err
+    rows = [e for e in evs if e["type"] == "row"]
+    assert [(r["action"], r["device_path"]) for r in rows] == [
+        ("upload", "/01_KICKS/BD 02"), ("delete", "/01_KICKS/OLD"), ("skip-exists", "/01_KICKS/BD 01")]
+    assert rows[0]["local_path"].endswith("BD 02.wav") and rows[1]["hash"] == "0000000b"
+    summary = evs[-1]["summary"]
+    assert summary["upload"] == 1 and summary["delete"] == 1 and summary["skip-exists"] == 1
+    assert summary["delete_bytes"] == 500 and summary["est_seconds"] > 0
+    assert summary["out"] is None and not (tmp_path / "plan.csv").exists()
 
 
 def test_errors_become_error_events(run_json, tmp_path):

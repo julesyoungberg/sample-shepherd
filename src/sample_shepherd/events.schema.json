@@ -24,17 +24,36 @@
         "kind": {"type": "string", "description": "what the row describes; the other fields depend on it"}
       },
       "required": ["kind"],
-      "if": {"properties": {"kind": {"const": "tool"}}},
-      "then": {
-        "properties": {
-          "name": {"type": "string"},
-          "found": {"type": "boolean"},
-          "path": {"type": ["string", "null"]},
-          "version": {"type": ["string", "null"]},
-          "enables": {"type": "array", "items": {"type": "string"}}
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "tool"}}},
+          "then": {
+            "properties": {
+              "name": {"type": "string"},
+              "found": {"type": "boolean"},
+              "path": {"type": ["string", "null"]},
+              "version": {"type": ["string", "null"]},
+              "enables": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["name", "found", "path", "version", "enables"]
+          }
         },
-        "required": ["name", "found", "path", "version", "enables"]
-      }
+        {
+          "if": {"properties": {"kind": {"const": "plan"}}},
+          "then": {
+            "description": "one row of the plan CSV, in the CSV's order",
+            "properties": {
+              "action": {"enum": ["upload", "delete", "skip-exists", "keep-used", "keep-protected", "skip-missing"]},
+              "device_path": {"type": "string"},
+              "local_path": {"type": "string", "description": "the export file to upload; empty for other actions"},
+              "size": {"type": ["integer", "null"]},
+              "reason": {"type": "string"},
+              "hash": {"type": "string", "description": "the device's content hash; empty for uploads"}
+            },
+            "required": ["action", "device_path", "local_path", "size", "reason", "hash"]
+          }
+        }
+      ]
     },
     {
       "description": "sync: sent after each upload; stop it with a {\"type\": \"stop\"} line on stdin",
