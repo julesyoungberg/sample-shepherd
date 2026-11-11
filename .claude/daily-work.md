@@ -48,3 +48,18 @@ triggers share this file). Newest last.
 - Open questions for Jules (docs/desktop-app-plan.md, still open): design direction, bundling
   Fourier, Apple Developer ID, Windows in v1, license.
 - Budget: 30, 25 and 30 minutes of 60; not all under half, so no change.
+
+## 2026-11-11 (Wednesday, weekday run)
+
+- Minutes used: about 25 of 60 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Add plan-edit: turn plan rows off or back on by id" (desktop app plan, CLI
+  piece 4, second half): `id` on plan row events, `plan-edit --exclude/--include`,
+  `excluded-upload`/`excluded-delete` actions, schema, docs, three tests. Named `plan-edit`
+  rather than `plan edit` because `plan` already takes flags and can't also have
+  subcommands; the app plan doc says `plan-edit` now.
+- State found: tests green on main, no open PRs or issues.
+- Next: `library index` (SQLite cache of the master, read-only). Then the app scaffold and
+  /dev/style page, which add Node and Rust tooling, so check with Jules first.
+- Open questions for Jules (docs/desktop-app-plan.md, still open): design direction, bundling
+  Fourier, Apple Developer ID, Windows in v1, license.
+- Budget: 30, 25 and 25 minutes of 60; not all under half, so no change.
