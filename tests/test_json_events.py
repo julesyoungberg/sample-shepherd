@@ -78,6 +78,7 @@ def test_plan_streams_each_row_and_totals(run_json, tmp_path):
                               "--prune", "--out", "plan.csv", "--dry-run")
     assert code == 0, err
     rows = [e for e in evs if e["type"] == "row"]
+    assert [r["id"] for r in rows] == [1, 2, 3]
     assert [(r["action"], r["device_path"]) for r in rows] == [
         ("upload", "/01_KICKS/BD 02"), ("delete", "/01_KICKS/OLD"), ("skip-exists", "/01_KICKS/BD 01")]
     assert rows[0]["local_path"].endswith("BD 02.wav") and rows[1]["hash"] == "0000000b"
@@ -85,6 +86,21 @@ def test_plan_streams_each_row_and_totals(run_json, tmp_path):
     assert summary["upload"] == 1 and summary["delete"] == 1 and summary["skip-exists"] == 1
     assert summary["delete_bytes"] == 500 and summary["est_seconds"] > 0
     assert summary["out"] is None and not (tmp_path / "plan.csv").exists()
+
+
+def test_plan_edit_excludes_rows_the_app_unticked(run_json, tmp_path):
+    (tmp_path / "plan.csv").write_text("action,device_path,local_path,size,reason,hash\n"
+                                       "upload,/K/BD 02,/r/BD 02.wav,100,,\n"
+                                       "delete,/K/OLD,,500,in the replace list,0000000b\n")
+    before = (tmp_path / "plan.csv").read_text()
+    code, evs, err = run_json("plan-edit", "plan.csv", "--exclude", "2", "--dry-run")
+    assert code == 0, err
+    assert (tmp_path / "plan.csv").read_text() == before
+    code, evs, err = run_json("plan-edit", "plan.csv", "--exclude", "2")
+    assert code == 0, err
+    assert [(r["id"], r["action"]) for r in evs if r["type"] == "row"] == [(1, "upload"), (2, "excluded-delete")]
+    assert evs[-1]["summary"]["delete"] == 0 and evs[-1]["summary"]["excluded"] == 1
+    assert "excluded-delete,/K/OLD" in (tmp_path / "plan.csv").read_text()
 
 
 def test_errors_become_error_events(run_json, tmp_path):

@@ -9,6 +9,10 @@ Rules:
 - Never delete a sample a project uses, matched by path (case-insensitive) or by the
   device's content hash; never delete under a protected path; never delete with no
   project-usage list at all.
+
+A row's id is its number in the plan CSV, counting from 1 after the header. Editing a plan
+by id can only turn an upload or delete off (excluded-upload, excluded-delete) and back on,
+so it never adds work the plan didn't choose.
 """
 from __future__ import annotations
 
@@ -24,11 +28,13 @@ from sample_shepherd.util import read_csv, write_csv
 HEADER = ["action", "device_path", "local_path", "size", "reason", "hash"]
 AUDIO = (".wav", ".aif", ".aiff", ".flac")
 ACTIONS = ("upload", "delete")
+EXCLUDED = "excluded-"
 
 
 @dataclass
 class PlanRow:
     action: str        # upload | delete | skip-exists | keep-used | keep-protected | skip-missing
+                       # | excluded-upload | excluded-delete
     device_path: str
     local_path: str = ""
     size: int | None = None
@@ -165,6 +171,7 @@ def totals(rows: list[PlanRow], transfer) -> dict[str, int | float]:
     return {"upload": len(up), "upload_bytes": up_bytes, "folders": len(folders),
             "delete": len(dl), "delete_bytes": sum(r.size or 0 for r in dl),
             **{k: counts[k] for k in ("skip-exists", "keep-used", "keep-protected", "skip-missing")},
+            "excluded": sum(n for a, n in counts.items() if a.startswith(EXCLUDED)),
             "est_seconds": est}
 
 
@@ -173,7 +180,7 @@ def summarize(rows: list[PlanRow], transfer) -> str:
     t = totals(rows, transfer)
     lines = [f"upload {t['upload']} files ({fmt_bytes(t['upload_bytes'])}) into {t['folders']} folders",
              f"delete {t['delete']} files (about {fmt_bytes(t['delete_bytes'])})"]
-    for k in ("skip-exists", "keep-used", "keep-protected", "skip-missing"):
+    for k in ("skip-exists", "keep-used", "keep-protected", "skip-missing", "excluded"):
         if t[k]:
             lines.append(f"{k}: {t[k]}")
     lines.append(f"estimated time: about {fmt_duration(t['est_seconds'])} "
@@ -189,6 +196,27 @@ def ordered(rows: list[PlanRow]) -> list[PlanRow]:
 
 def write_plan(rows: list[PlanRow], out: Path) -> None:
     write_csv(out, HEADER, (r.as_list() for r in ordered(rows)))
+
+
+def save_plan(rows: list[PlanRow], out: Path) -> None:
+    """Write rows in their current order, so ids stay the same after an edit."""
+    write_csv(out, HEADER, (r.as_list() for r in rows))
+
+
+def set_excluded(rows: list[PlanRow], ids: list[int], excluded: bool) -> None:
+    """Turn upload/delete rows off (excluded) or back on, by id. Checks every id before
+    changing any, so a bad id leaves the plan as it was."""
+    for i in ids:
+        if not 1 <= i <= len(rows):
+            raise PlanError(f"no row {i}: the plan has {len(rows)} rows")
+        action = rows[i - 1].action.removeprefix(EXCLUDED)
+        if action not in ACTIONS:
+            raise PlanError(f"row {i} is {rows[i - 1].action}: only upload and delete rows can be "
+                            f"excluded or included")
+    for i in ids:
+        r = rows[i - 1]
+        base = r.action.removeprefix(EXCLUDED)
+        r.action = EXCLUDED + base if excluded else base
 
 
 def load_plan(path: Path) -> list[PlanRow]:

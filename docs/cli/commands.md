@@ -23,6 +23,7 @@ and its projects safe. Every flag is in the [command reference](reference.md);
 | `projects backup` | Downloads projects, one folder per slot, plus `backup-index.csv` | reads the device; writes the backup folder |
 | `projects used --backups DIR --out CSV` | Samples the backed-up projects use | `CSV` |
 | `plan ... --out CSV` | Works out what to upload and delete | `CSV` |
+| `plan-edit CSV --exclude ID...` | Turns plan rows off or back on by id | `CSV` |
 | `sync --plan CSV` | Carries out a plan, logging each step | **the device** |
 | `eval categories` | Scores category sorting (baselines, a Fourier master) against hand labels | nothing, or the `--json` file |
 | `eval import-ratings RATINGS --labels CSV` | Adds your Fourier Keep/Misfiled ratings to a label file | the label file |
@@ -129,6 +130,22 @@ make all of `/DRUMS` on the device fair game. If you keep your own folders calle
 
 `plan` prints a summary with a time estimate from `[transfer]`.
 
+## plan-edit
+
+Turns plan rows off or back on by id, and rewrites the plan CSV in place. A row's id is its
+number in the CSV, counting from 1 after the header (`--json` row events carry it as `id`).
+
+```
+sample-shepherd plan-edit plan.csv --exclude 4 7 --include 2
+```
+
+- `--exclude` turns an `upload` or `delete` row into `excluded-upload` or `excluded-delete`.
+  `sync` skips excluded rows.
+- `--include` turns an excluded row back on.
+- Any other row is an error, so editing can only drop work the plan chose, never add it. A
+  bad id changes nothing. Excluding a row that's already excluded is fine.
+- Rows keep their order, so ids stay the same after an edit.
+
 ## sync
 
 Carries out a plan on the device.
@@ -189,11 +206,13 @@ This is how the desktop app runs the CLI. The shapes are in
   empty and the exit code is 2. The usage message is on stderr.
 - If the reader closes its end of the pipe, the CLI stops writing events and finishes
   quietly.
-- `row` events carry a command's data. Two commands send them so far:
+- `row` events carry a command's data. Three commands send them so far:
   - `tools`: one `"kind": "tool"` row per tool (above).
   - `plan`: one `"kind": "plan"` row per plan row, with the plan CSV's columns and in its
     order. The `result` summary has counts per action, `upload_bytes`, `delete_bytes`,
-    `folders`, `est_seconds`, and `out` (the plan CSV, or `null` on a dry run).
+    `folders`, `est_seconds`, `excluded`, and `out` (the plan CSV, or `null` on a dry run).
+    Each row has an `id` for `plan-edit`.
+  - `plan-edit`: the same rows and summary, after the edit.
 
   The other commands send `start` and `result` or `error`, and their human text on stderr.
 - Anything else that writes to stdout (a stray print, Fourier, any child process) is sent to

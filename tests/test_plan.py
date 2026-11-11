@@ -3,7 +3,7 @@ import pytest
 from conftest import make_wav
 from sample_shepherd.config import Transfer
 from sample_shepherd.sync.listing import Listed
-from sample_shepherd.sync.plan import PlanError, make_plan, summarize
+from sample_shepherd.sync.plan import PlanError, PlanRow, make_plan, set_excluded, summarize
 from sample_shepherd.sync.projects import UsedSample
 
 
@@ -91,3 +91,25 @@ def test_sectioned_render_with_nested_folders(tmp_path):
     assert "/DRUMS/03_CLAPS/CP 01" not in sum(a.values(), [])
     with pytest.raises(PlanError):
         make_plan([], None, r, folders=["01_KICKS"])
+
+
+def test_exclude_and_include_rows_by_id():
+    rows = [PlanRow("upload", "/A"), PlanRow("delete", "/B", hash="0000000b"), PlanRow("keep-used", "/C")]
+    set_excluded(rows, [1, 2], True)
+    assert [r.action for r in rows] == ["excluded-upload", "excluded-delete", "keep-used"]
+    set_excluded(rows, [1, 2], True)       # again: no change, not an error
+    set_excluded(rows, [2], False)
+    assert [r.action for r in rows] == ["excluded-upload", "delete", "keep-used"]
+    assert summarize(rows, Transfer()).splitlines()[1].startswith("delete 1 files")
+    assert "excluded: 1" in summarize(rows, Transfer())
+
+
+def test_edit_can_only_turn_off_or_back_on_what_plan_chose():
+    rows = [PlanRow("upload", "/A"), PlanRow("keep-used", "/C")]
+    with pytest.raises(PlanError, match="row 2 is keep-used"):
+        set_excluded(rows, [2], True)
+    with pytest.raises(PlanError, match="row 2 is keep-used"):
+        set_excluded(rows, [2], False)      # including never turns a kept sample into a delete
+    with pytest.raises(PlanError, match="no row 3"):
+        set_excluded(rows, [3], True)
+    assert [r.action for r in rows] == ["upload", "keep-used"]
