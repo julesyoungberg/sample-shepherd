@@ -135,7 +135,7 @@ to stdout and nothing else (human text goes to stderr):
    the same ratings `fourier review` sets; the column is simply empty without them). Incremental by mtime and size. The browser queries this.
 3. `tools --json`: the versions and paths of `elektroid-cli` and `fourier`, and what each
    enables. The onboarding screen is this command, drawn.
-4. `plan --json` row stream and `plan edit` (exclude or include rows by id), so a reviewed
+4. `plan --json` row stream and `plan-edit` (exclude or include rows by id), so a reviewed
    plan stays a CSV the CLI checks again at sync time.
 
 All four are useful from the terminal too, and each gets tests without a device.
@@ -391,7 +391,7 @@ new fixtures.
 2. **Library.** `library index`, the browser, waveforms, audition, the terrain.
 3. **Organize and export.** Wrapped runs with dry-run-first, check results.
 4. **Device and plan.** Device screen with the +Drive map, backups, Plan with the flow,
-   `plan edit`. Still nothing written to a device: plan is read-only on the device.
+   `plan-edit`. Still nothing written to a device: plan is read-only on the device.
 5. **Sync.** The live run screen. First real run only with Jules, after the current sync
    finishes.
 6. **Packaging.** CI matrix, signing, installers. Then the later visualizations.

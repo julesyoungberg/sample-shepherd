@@ -185,6 +185,17 @@ Compare listing, project usage and an export; write upload/delete plan.
 | `--replace REPLACE` | CSV of device paths to delete once replaced (path or '+Drive path' column) |
 | `--out OUT` | plan CSV to write (required) |
 
+## `plan-edit`
+
+Turn plan rows off or back on by id (the row's number in the plan CSV).
+
+| Argument | Description |
+|---|---|
+| `--dry-run` | show what would happen; change nothing |
+| `plan` | plan CSV from `plan`; rewritten in place |
+| `--exclude ID ...` | upload or delete rows to skip |
+| `--include ID ...` | excluded rows to turn back on |
+
 ## `sync`
 
 Carry out a plan on the device (resumable).

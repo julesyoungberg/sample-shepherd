@@ -43,14 +43,16 @@
           "then": {
             "description": "one row of the plan CSV, in the CSV's order",
             "properties": {
-              "action": {"enum": ["upload", "delete", "skip-exists", "keep-used", "keep-protected", "skip-missing"]},
+              "id": {"type": "integer", "minimum": 1, "description": "the row's number in the plan CSV; `plan-edit` takes it"},
+              "action": {"enum": ["upload", "delete", "skip-exists", "keep-used", "keep-protected", "skip-missing",
+                                  "excluded-upload", "excluded-delete"]},
               "device_path": {"type": "string"},
               "local_path": {"type": "string", "description": "the export file to upload; empty for other actions"},
               "size": {"type": ["integer", "null"]},
               "reason": {"type": "string"},
               "hash": {"type": "string", "description": "the device's content hash; empty for uploads"}
             },
-            "required": ["action", "device_path", "local_path", "size", "reason", "hash"]
+            "required": ["id", "action", "device_path", "local_path", "size", "reason", "hash"]
           }
         }
       ]

@@ -5,6 +5,7 @@
   sample-shepherd device     ls | info | listing
   sample-shepherd projects   ls | backup | used
   sample-shepherd plan       listing + used + export -> plan CSV
+  sample-shepherd plan-edit  turn plan rows off or back on by id
   sample-shepherd sync       carry out a plan (resumable)
   sample-shepherd config     show | init
   sample-shepherd eval       categories | import-ratings | sample
@@ -383,16 +384,46 @@ def cmd_plan(cfg, a) -> int:
                               a.folders, a.dest, a.prune, replace, cfg.protected)
     except plan.PlanError as e:
         raise UserError(str(e)) from None
+    rows = plan.ordered(rows)
     _out(plan.summarize(rows, cfg.transfer))
-    for r in plan.ordered(rows):
-        a.events.emit("row", kind="plan", action=r.action, device_path=r.device_path,
-                      local_path=r.local_path, size=r.size, reason=r.reason, hash=r.hash)
+    _emit_plan_rows(a, rows)
     a.events.summary.update(plan.totals(rows, cfg.transfer), out=None if a.dry_run else a.out)
     if a.dry_run:
         _out(f"(dry run: would write {a.out})")
         return 0
     plan.write_plan(rows, Path(a.out))
     _out(f"plan -> {a.out}  (read it, edit it if you like, then `sample-shepherd sync --plan {a.out}`)")
+    return 0
+
+
+def _emit_plan_rows(a, rows) -> None:
+    for i, r in enumerate(rows, 1):
+        a.events.emit("row", kind="plan", id=i, action=r.action, device_path=r.device_path,
+                      local_path=r.local_path, size=r.size, reason=r.reason, hash=r.hash)
+
+
+def cmd_plan_edit(cfg, a) -> int:
+    from sample_shepherd.sync import plan
+    if not a.exclude and not a.include:
+        raise UserError("nothing to do: give --exclude and/or --include with row ids")
+    both = set(a.exclude or []) & set(a.include or [])
+    if both:
+        raise UserError(f"rows both excluded and included: {', '.join(map(str, sorted(both)))}")
+    path = Path(a.plan)
+    rows = plan.load_plan(path)
+    try:
+        plan.set_excluded(rows, a.exclude or [], True)
+        plan.set_excluded(rows, a.include or [], False)
+    except plan.PlanError as e:
+        raise UserError(f"{path}: {e}") from None
+    _out(plan.summarize(rows, cfg.transfer))
+    _emit_plan_rows(a, rows)
+    a.events.summary.update(plan.totals(rows, cfg.transfer), out=None if a.dry_run else str(path))
+    if a.dry_run:
+        _out(f"(dry run: would rewrite {path})")
+        return 0
+    plan.save_plan(rows, path)
+    _out(f"plan -> {path}")
     return 0
 
 
@@ -599,6 +630,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--prune", action="store_true", help="delete device files in the synced folders that the export doesn't have")
     p.add_argument("--replace", help="CSV of device paths to delete once replaced (path or '+Drive path' column)")
     p.add_argument("--out", required=True, help="plan CSV to write")
+
+    p = add(sub, "plan-edit", cmd_plan_edit,
+            "turn plan rows off or back on by id (the row's number in the plan CSV)", dry=True)
+    p.add_argument("plan", help="plan CSV from `plan`; rewritten in place")
+    p.add_argument("--exclude", type=int, nargs="+", metavar="ID", help="upload or delete rows to skip")
+    p.add_argument("--include", type=int, nargs="+", metavar="ID", help="excluded rows to turn back on")
 
     p = add(sub, "sync", cmd_sync, "carry out a plan on the device (resumable)", dry=True)
     p.add_argument("--plan", required=True, help="plan CSV from `plan`")
