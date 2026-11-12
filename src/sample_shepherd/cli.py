@@ -565,13 +565,19 @@ def cmd_library_index(cfg, a) -> int:
     c = ch.counts()
     a.events.summary.update(c, db=str(db))
     if a.dry_run:
+        for s in ch.skipped:
+            _err(f"would skip {s}")
         _out(f"{len(ch.add)} to add, {len(ch.update)} to update, {ch.unchanged} unchanged, "
-             f"{len(ch.remove)} to remove; {fmt_bytes(ch.bytes_to_read)} to read")
+             f"{len(ch.remove)} to remove, {len(ch.skipped)} unreadable; "
+             f"{fmt_bytes(ch.bytes_to_read)} to read")
         _out(f"(dry run: would write {db})")
         return 0
-    library.index(root, db, ch)
+    c = library.index(root, db, ch)
+    a.events.summary.update(c)
+    for s in ch.skipped:
+        _err(f"skipped {s}")
     _out(f"{c['added']} added, {c['updated']} updated, {c['unchanged']} unchanged, "
-         f"{c['removed']} removed -> {db}")
+         f"{c['removed']} removed, {c['skipped']} skipped (unreadable) -> {db}")
     return 0
 
 

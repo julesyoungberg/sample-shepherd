@@ -43,6 +43,10 @@ def estimate_seconds(total_bytes: int, calls: int, bytes_per_second: float, seco
     return total_bytes / bytes_per_second + calls * seconds_per_call
 
 
+#: what counts as an audio file, by extension
+AUDIO = (".wav", ".aif", ".aiff", ".flac")
+
+
 @dataclass
 class WavInfo:
     rate: int

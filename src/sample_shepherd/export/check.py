@@ -7,9 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sample_shepherd.export.profiles import Profile
-from sample_shepherd.util import wav_info
-
-AUDIO = (".wav", ".aif", ".aiff", ".flac")
+from sample_shepherd.util import AUDIO, wav_info
 
 
 @dataclass

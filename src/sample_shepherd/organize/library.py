@@ -15,9 +15,7 @@ from pathlib import Path
 
 from sample_shepherd.evaluate import CATEGORIES
 from sample_shepherd.sync.projects import sha256
-from sample_shepherd.util import wav_info
-
-AUDIO = (".wav", ".wave", ".aif", ".aiff", ".flac")
+from sample_shepherd.util import AUDIO, wav_info
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -58,12 +56,13 @@ class Changes:
     update: list[str] = field(default_factory=list)
     unchanged: int = 0
     remove: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)   # unreadable: "path: reason"
     bytes_to_read: int = 0
     stats: dict[str, os.stat_result] = field(default_factory=dict)
 
     def counts(self) -> dict[str, int]:
         return {"added": len(self.add), "updated": len(self.update),
-                "unchanged": self.unchanged, "removed": len(self.remove)}
+                "unchanged": self.unchanged, "removed": len(self.remove), "skipped": len(self.skipped)}
 
 
 def _check_paths(root: Path, db: Path) -> None:
@@ -84,13 +83,20 @@ def _check_root(con: sqlite3.Connection, root: Path, db: Path) -> None:
         raise ValueError(f"{db} already indexes {row[0]}; pass another --db for {root}")
 
 
-def _walk(root: Path):
+def _walk(root: Path, skipped: list[str]):
+    """(relative path, stat) for each audio file. A file that can't be read (a broken
+    symlink, no permission) goes in `skipped`: one bad file in a big library shouldn't stop
+    the rest being indexed."""
     for dp, dirs, files in os.walk(root):
         dirs[:] = sorted(d for d in dirs if not d.startswith("."))
         for f in sorted(files):
             if f.lower().endswith(AUDIO) and not f.startswith("."):
                 p = Path(dp) / f
-                yield p.relative_to(root).as_posix(), p.stat()
+                rel = p.relative_to(root).as_posix()
+                try:
+                    yield rel, p.stat()
+                except OSError as e:
+                    skipped.append(f"{rel}: {e.strerror or e}")
 
 
 def scan(root: Path, db: Path) -> Changes:
@@ -105,7 +111,7 @@ def scan(root: Path, db: Path) -> Changes:
             known = {p: (s, m) for p, s, m in con.execute("SELECT path, size, mtime_ns FROM samples")}
         con.close()
     ch = Changes()
-    for rel, st in _walk(root):
+    for rel, st in _walk(root, ch.skipped):
         ch.stats[rel] = st
         old = known.pop(rel, None)
         if old == (st.st_size, st.st_mtime_ns):
@@ -129,12 +135,18 @@ def index(root: Path, db: Path, changes: Changes | None = None) -> dict[str, int
             _check_root(con, root, db)
             con.execute("INSERT OR REPLACE INTO meta VALUES ('root', ?)", (str(root.resolve()),))
             for rel in ch.add + ch.update:
+                try:
+                    digest = sha256(root / rel)
+                except OSError as e:          # unreadable, or gone since the scan
+                    ch.skipped.append(f"{rel}: {e.strerror or e}")
+                    (ch.add if rel in ch.add else ch.update).remove(rel)
+                    continue
                 st, info = ch.stats[rel], wav_info(root / rel)
                 folder = rel.rpartition("/")[0]
                 con.execute(
                     "INSERT OR REPLACE INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
                     (rel, folder, category_of(rel), info and info.seconds, info and info.rate,
-                     info and info.channels, st.st_size, st.st_mtime_ns, sha256(root / rel)))
+                     info and info.channels, st.st_size, st.st_mtime_ns, digest))
             con.executemany("DELETE FROM samples WHERE path = ?", [(p,) for p in ch.remove])
     finally:
         con.close()

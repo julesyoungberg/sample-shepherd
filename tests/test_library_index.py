@@ -27,7 +27,7 @@ def test_index_reads_the_master_and_updates_incrementally(tmp_path):
     db = tmp_path / "app" / "library.sqlite"
     before = snapshot(master)
 
-    assert library.index(master, db) == {"added": 3, "updated": 0, "unchanged": 0, "removed": 0}
+    assert library.index(master, db) == {"added": 3, "updated": 0, "unchanged": 0, "removed": 0, "skipped": 0}
     got = rows(db)
     k = got["DRUMS/01_KICKS/punchy/Kick 1.wav"]
     assert (k["folder"], k["category"], k["duration"], k["sample_rate"], k["channels"]) == \
@@ -40,13 +40,24 @@ def test_index_reads_the_master_and_updates_incrementally(tmp_path):
     make_wav(kick, frames=48000)
     os.utime(kick, ns=(1, 1))
     hat.unlink()
-    assert library.index(master, db) == {"added": 0, "updated": 1, "unchanged": 1, "removed": 1}
+    assert library.index(master, db) == {"added": 0, "updated": 1, "unchanged": 1, "removed": 1, "skipped": 0}
     got = rows(db)
     assert set(got) == {"DRUMS/01_KICKS/punchy/Kick 1.wav", "PADS/warm/Pad.wav"}
     assert got["DRUMS/01_KICKS/punchy/Kick 1.wav"]["duration"] == 1.0
 
     del before[hat]
     assert {p: v for p, v in snapshot(master).items() if p != kick} == {p: v for p, v in before.items() if p != kick}
+
+
+def test_index_skips_unreadable_files_and_indexes_the_rest(tmp_path):
+    master = tmp_path / "master"
+    make_wav(master / "KICKS/K.wav")
+    (master / "KICKS/broken.wav").symlink_to(tmp_path / "nonexistent.wav")
+    db = tmp_path / "library.sqlite"
+    ch = library.scan(master, db)
+    assert [s.split(":")[0] for s in ch.skipped] == ["KICKS/broken.wav"]
+    assert library.index(master, db, ch)["skipped"] == 1
+    assert set(rows(db)) == {"KICKS/K.wav"}
 
 
 def test_index_refuses_a_db_inside_the_master_or_another_masters_db(tmp_path):

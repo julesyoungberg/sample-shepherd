@@ -86,6 +86,8 @@ separate program with the environment from `[fourier] env`.
 - A rerun only reads files that are new or whose size or modification time changed, and
   drops rows for files that are gone. One index holds one library; pass another `--db`
   for another.
+- A file it can't read (a broken symlink, no read permission) is skipped and listed on
+  stderr; the rest is still indexed.
 - The category is the first folder named after one (`KICKS/...`, or `DRUMS/01_KICKS/...` in
   a four-level render). Files in no category folder have none.
 - Duration, sample rate and channels come from the WAV header; for other formats they're
@@ -234,7 +236,7 @@ This is how the desktop app runs the CLI. The shapes are in
   - `plan-edit`: the same rows and summary, after the edit.
 
   `library index` sends no rows; its `result` summary has `added`, `updated`,
-  `unchanged`, `removed` and `db` (the index file).
+  `unchanged`, `removed`, `skipped` (unreadable files) and `db` (the index file).
 
   The other commands send `start` and `result` or `error`, and their human text on stderr.
 - Anything else that writes to stdout (a stray print, Fourier, any child process) is sent to
