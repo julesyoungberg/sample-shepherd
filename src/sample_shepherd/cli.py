@@ -2,6 +2,7 @@
 
   sample-shepherd organize   doctor | build | patches | install-fourier
   sample-shepherd export     profiles | render | check
+  sample-shepherd library    index
   sample-shepherd device     ls | info | listing
   sample-shepherd projects   ls | backup | used
   sample-shepherd plan       listing + used + export -> plan CSV
@@ -554,6 +555,26 @@ def cmd_eval_sample(cfg, a) -> int:
     return 0
 
 
+# ----------------------------------------------------------------------------- library
+
+def cmd_library_index(cfg, a) -> int:
+    from sample_shepherd.organize import library
+    root = Path(a.library).expanduser()
+    db = Path(a.db).expanduser() if a.db else cfg.work_dir / "library.sqlite"
+    ch = library.scan(root, db)
+    c = ch.counts()
+    a.events.summary.update(c, db=str(db))
+    if a.dry_run:
+        _out(f"{len(ch.add)} to add, {len(ch.update)} to update, {ch.unchanged} unchanged, "
+             f"{len(ch.remove)} to remove; {fmt_bytes(ch.bytes_to_read)} to read")
+        _out(f"(dry run: would write {db})")
+        return 0
+    library.index(root, db, ch)
+    _out(f"{c['added']} added, {c['updated']} updated, {c['unchanged']} unchanged, "
+         f"{c['removed']} removed -> {db}")
+    return 0
+
+
 # ----------------------------------------------------------------------------- parser
 
 def build_parser() -> argparse.ArgumentParser:
@@ -602,6 +623,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--show", type=int, default=30, help="issues to print")
     p.add_argument("--max-name-length", type=int,
                    help="flag longer sample names (default: 32 for Elektron profiles; 0 turns it off)")
+
+    lib = sub.add_parser("library", help="index a curated library for browsing").add_subparsers(dest="sub", required=True)
+    p = add(lib, "index", cmd_library_index,
+            "scan a library (read-only) into a SQLite index: path, category, duration, format, hash", dry=True)
+    p.add_argument("library", help="the library folder, e.g. a Fourier master (only read)")
+    p.add_argument("--db", help="the index file to create or update (default: <work_dir>/library.sqlite)")
 
     d = sub.add_parser("device", help="connected devices and their sample storage").add_subparsers(dest="sub", required=True)
     add(d, "ls", cmd_device_ls, "list connected devices", dry=True)

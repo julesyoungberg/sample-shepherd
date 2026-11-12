@@ -17,6 +17,7 @@ and its projects safe. Every flag is in the [command reference](reference.md);
 | `export profiles` | Lists device profiles | nothing |
 | `export render PROFILE` | Runs `fourier render` with our profiles | the output folder |
 | `export check RENDER --profile P` | Checks a render against the profile's limits | nothing |
+| `library index LIBRARY` | Indexes a library into SQLite for browsing | the index file |
 | `device ls` / `device info` | Connected devices / a device's filesystems | reads the device |
 | `device listing --out CSV` | Lists the sample storage: `path,size,hash` | reads the device; writes `CSV` |
 | `projects ls` | Lists project slots | reads the device |
@@ -73,6 +74,24 @@ separate program with the environment from `[fourier] env`.
   refuse or hide: too many files in a folder, folders too deep, the wrong sample rate or
   bit depth, and (for Elektron profiles) names over 32 characters. It exits 1 if it finds
   anything, so it works in scripts.
+
+## library
+
+- `library index LIBRARY` reads a library folder (a Fourier master, or any folder of samples)
+  and writes a SQLite index of it: one row per audio file in a `samples` table, with its
+  path and folder (relative to the library), category, duration, sample rate, channels,
+  size and SHA-256 content hash. The desktop app's library browser reads this file.
+- The library is only read. The index can't go inside it: `--db` defaults to
+  `<work_dir>/library.sqlite`, and an index path inside the library is refused.
+- A rerun only reads files that are new or whose size or modification time changed, and
+  drops rows for files that are gone. One index holds one library; pass another `--db`
+  for another.
+- The category is the first folder named after one (`KICKS/...`, or `DRUMS/01_KICKS/...` in
+  a four-level render). Files in no category folder have none.
+- Duration, sample rate and channels come from the WAV header; for other formats they're
+  empty. The `rating` column is empty for now.
+- `--dry-run` prints how many files it would add, update and remove, and how much it
+  would read to hash them, and writes nothing.
 
 ## device
 
@@ -213,6 +232,9 @@ This is how the desktop app runs the CLI. The shapes are in
     `folders`, `est_seconds`, `excluded`, and `out` (the plan CSV, or `null` on a dry run).
     Each row has an `id` for `plan-edit`.
   - `plan-edit`: the same rows and summary, after the edit.
+
+  `library index` sends no rows; its `result` summary has `added`, `updated`,
+  `unchanged`, `removed` and `db` (the index file).
 
   The other commands send `start` and `result` or `error`, and their human text on stderr.
 - Anything else that writes to stdout (a stray print, Fourier, any child process) is sent to

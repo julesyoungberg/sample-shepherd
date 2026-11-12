@@ -106,6 +106,20 @@ Check a render against its profile's limits (reads only).
 | `--show SHOW` | issues to print (default `30`) |
 | `--max-name-length MAX_NAME_LENGTH` | flag longer sample names (default: 32 for Elektron profiles; 0 turns it off) |
 
+## `library`
+
+Index a curated library for browsing.
+
+### `library index`
+
+Scan a library (read-only) into a SQLite index: path, category, duration, format, hash.
+
+| Argument | Description |
+|---|---|
+| `--dry-run` | show what would happen; change nothing |
+| `library` | the library folder, e.g. a Fourier master (only read) |
+| `--db DB` | the index file to create or update (default: &lt;work_dir&gt;/library.sqlite) |
+
 ## `device`
 
 Connected devices and their sample storage.
