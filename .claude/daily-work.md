@@ -63,3 +63,20 @@ triggers share this file). Newest last.
 - Open questions for Jules (docs/desktop-app-plan.md, still open): design direction, bundling
   Fourier, Apple Developer ID, Windows in v1, license.
 - Budget: 30, 25 and 25 minutes of 60; not all under half, so no change.
+
+## 2026-11-12 (Thursday, weekday run)
+
+- Minutes used: about 25 of 60 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR #16 "Add library index: a read-only SQLite index of a library"
+  (https://github.com/julesyoungberg/sample-shepherd/pull/16; desktop app plan, CLI piece 2):
+  `library index LIBRARY --db`, incremental by size and mtime, category from folder names,
+  WAV duration/rate/channels, SHA-256, guards against an index inside the library or of
+  another library, docs, three tests. Separate refactor commit: `wav_info` in util.py.
+- State found: tests green on main, no open PRs or issues.
+- Next: fill the index's `rating` column from Fourier's ratings.json (needs the master's
+  manifest.json `out` format confirmed against a real master). Then the app scaffold and
+  /dev/style page, which add Node and Rust tooling, so check with Jules first.
+- Open questions for Jules: OK to add Node and Rust tooling for the app scaffold? Plus the
+  ones in docs/desktop-app-plan.md: design direction, bundling Fourier, Apple Developer ID,
+  Windows in v1, license.
+- Budget: 30, 25 and 25 minutes of 60; 30 isn't under half, so no change.
