@@ -54,7 +54,7 @@ Then update the base commit here and in `src/sample_shepherd/organize/fourier.py
 
 ## Offering them upstream
 
-Not done, and **nothing gets filed without Jules's OK.** Fourier's CONTRIBUTING asks for an
+Not done yet. Fourier's CONTRIBUTING asks for an
 issue and a maintainer's go-ahead before a PR, tests with invented names (Acme, Northwind)
 rather than real pack sample names (0001–0003's tests use names like `SD_Falcon_Kick`, so
 rename those first), the synthetic golden re-run (`tests/golden/synthetic_build.py --check`),
