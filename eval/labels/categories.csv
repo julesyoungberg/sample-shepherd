@@ -29,15 +29,15 @@ old/Brad Brunazzi Vintage Drum Machines/Raw Vintage Machines/LinnDrum/Kick/SD_LI
 old/Brad Brunazzi Vintage Drum Machines/Raw Vintage Machines/RX21/SD_RX21_Kick.wav,KICKS,folder-rule,"SD_ is the vendor's prefix; the pack folder decides (scripts/folder_ratings.py, phase 1)"
 old/Brad Brunazzi Vintage Drum Machines/Raw Vintage Machines/TR707/SD_TR707_Kick_1.wav,KICKS,folder-rule,"SD_ is the vendor's prefix; the pack folder decides (scripts/folder_ratings.py, phase 1)"
 old/Brad Brunazzi Vintage Drum Machines/Raw Vintage Machines/TR707/SD_TR707_Kick_2.wav,KICKS,folder-rule,"SD_ is the vendor's prefix; the pack folder decides (scripts/folder_ratings.py, phase 1)"
-909 Kicks/SD_Kick_Alauda.wav,KICKS,documented,SD_ vendor prefix (docs/phase1-report.md)
-SD_DMX_Tom_1.wav,TOMS,documented,"SD_ prefix, the rest names a tom (docs/phase1-report.md)"
-Cymbals & Percussion/SD_LINDRUM_Clap.wav,CLAPS,documented,a drum word in the name beats the folder (docs/phase1-report.md)
-Cymbals & Percussion/SD_LINDRUM_Cabasa_1.wav,PERC,documented,cabasa is percussion; Fourier filed it in CYMBALS by folder (docs/phase1-report.md)
-Cymbals & Percussion/SD_LINDRUM_Tamb_1.wav,PERC,documented,tambourine is percussion; Fourier filed it in CYMBALS by folder (docs/phase1-report.md)
-SD_LINDRUM_Weird_Snare_Sweep_Down.wav,SNARES,documented,kept in SNARES after the SD_ fix (docs/phase1-report.md)
-SD_Senju_Snare.wav,SNARES,documented,kept in SNARES after the SD_ fix (docs/phase1-report.md)
-Aluminum20a.wav,FX,documented,"foley, not a loop (docs/phase2-report.md); dropped from DRUMLOOPS"
-ScrewsOnWoodTabletop65.wav,FX,documented,"foley, not a loop (docs/phase2-report.md); dropped from DRUMLOOPS"
+909 Kicks/SD_Kick_Alauda.wav,KICKS,documented,SD_ vendor prefix (docs/history/phase1-report.md)
+SD_DMX_Tom_1.wav,TOMS,documented,"SD_ prefix, the rest names a tom (docs/history/phase1-report.md)"
+Cymbals & Percussion/SD_LINDRUM_Clap.wav,CLAPS,documented,a drum word in the name beats the folder (docs/history/phase1-report.md)
+Cymbals & Percussion/SD_LINDRUM_Cabasa_1.wav,PERC,documented,cabasa is percussion; Fourier filed it in CYMBALS by folder (docs/history/phase1-report.md)
+Cymbals & Percussion/SD_LINDRUM_Tamb_1.wav,PERC,documented,tambourine is percussion; Fourier filed it in CYMBALS by folder (docs/history/phase1-report.md)
+SD_LINDRUM_Weird_Snare_Sweep_Down.wav,SNARES,documented,kept in SNARES after the SD_ fix (docs/history/phase1-report.md)
+SD_Senju_Snare.wav,SNARES,documented,kept in SNARES after the SD_ fix (docs/history/phase1-report.md)
+Aluminum20a.wav,FX,documented,"foley, not a loop (docs/history/phase2-report.md); dropped from DRUMLOOPS"
+ScrewsOnWoodTabletop65.wav,FX,documented,"foley, not a loop (docs/history/phase2-report.md); dropped from DRUMLOOPS"
 Acme Drums/Kicks/Acme_Kick_01.wav,KICKS,synthetic,plain
 Northwind 909/BD/NW_909_BD_03.wav,KICKS,synthetic,BD abbreviation
 Acme Drums/One Shots/AcmeBassDrum_Hard.wav,KICKS,synthetic,"camelCase bass drum, not SUB"
