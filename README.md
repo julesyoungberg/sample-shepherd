@@ -191,7 +191,7 @@ eval/labels/           hand-labeled categories for `eval` (paths only)
 tests/                 pytest; tests/fake/elektroid-cli stands in for a device
 config/                Fourier config, device profiles, patches, curation decisions
 examples/              starter configs for sample-shepherd and Fourier
-docs/                  user guides (start at docs/README.md), how-tos, and notes from the first build
+docs/                  user guides (start at docs/README.md) and how-tos; docs/history/ has notes from the first build
 scripts/               the original one-off scripts (still in use; see below)
 ```
 
@@ -202,7 +202,6 @@ tree runs them by path. The package replaces the device parts (`drive_listing.py
 source-library matching (`drive_match.py`, `delete_list.py`) and reports read Fourier's
 database and stay scripts for now. Its output can feed `plan --replace`.
 
-## Possible later work
+## What's next
 
-A TUI or small web page for reviewing plans; more devices (SDS samplers, which Elektroid
-supports); recording measured transfer speed per device.
+See the [roadmap](docs/roadmap.md).

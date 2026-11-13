@@ -1,7 +1,6 @@
 # Roadmap
 
-Planned work that isn't started or isn't finished. Anything that goes public (publishing,
-deploying, signing up for a service) needs Jules's OK first.
+Planned work that isn't started or isn't finished.
 
 ## Desktop app
 
@@ -24,3 +23,9 @@ A first version is in [site/](../site/README.md), not deployed. Still to do:
 - Publish the CLI to PyPI so `pipx install sample-shepherd` and `uv tool install
   sample-shepherd` work. Check the name is free first. Maybe Homebrew later.
 - Choose a license, then open-source the repository.
+
+## Ideas
+
+- A TUI or small web page for reviewing plans.
+- More devices: SDS samplers, which Elektroid supports.
+- Record the measured transfer speed per device.
