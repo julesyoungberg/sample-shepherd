@@ -1,6 +1,7 @@
 from conftest import make_wav
 from sample_shepherd.export import profiles
-from sample_shepherd.export.check import check_render, wav_format
+from sample_shepherd.export.check import check_render
+from sample_shepherd.util import WavInfo, wav_info
 
 
 def test_bundled_profiles_resolve():
@@ -12,10 +13,10 @@ def test_bundled_profiles_resolve():
     assert (g.folder_depth, g.files_per_folder, g.sample_rate, g.bit_depth) == (3, None, 44100, 24)
 
 
-def test_wav_format(tmp_path):
-    assert wav_format(make_wav(tmp_path / "a.wav", 44100, 24)) == (44100, 24)
+def test_wav_info(tmp_path):
+    assert wav_info(make_wav(tmp_path / "a.wav", 44100, 24, frames=22050, channels=2)) == WavInfo(44100, 24, 2, 0.5)
     (tmp_path / "b.wav").write_bytes(b"nope")
-    assert wav_format(tmp_path / "b.wav") is None
+    assert wav_info(tmp_path / "b.wav") is None
 
 
 def test_check_render(tmp_path):

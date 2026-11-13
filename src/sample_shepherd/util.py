@@ -1,10 +1,12 @@
-"""Small shared helpers: sizes, durations, estimates, CSV files, the device lock."""
+"""Small shared helpers: sizes, durations, estimates, CSV files, WAV headers, the device lock."""
 from __future__ import annotations
 
 import contextlib
 import csv
 import os
 import re
+import struct
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence
 
@@ -39,6 +41,50 @@ def fmt_duration(seconds: float) -> str:
 
 def estimate_seconds(total_bytes: int, calls: int, bytes_per_second: float, seconds_per_call: float) -> float:
     return total_bytes / bytes_per_second + calls * seconds_per_call
+
+
+#: what counts as an audio file, by extension
+AUDIO = (".wav", ".aif", ".aiff", ".flac")
+
+
+@dataclass
+class WavInfo:
+    rate: int
+    bits: int
+    channels: int
+    seconds: float | None      # None when the header has no data chunk size to go by
+
+
+def wav_info(path: Path) -> WavInfo | None:
+    """A WAV's format from its header (fmt and data chunks), or None if it isn't readable.
+    Reads only the chunk headers, not the audio."""
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(12)
+            if len(head) < 12 or head[:4] not in (b"RIFF", b"RF64") or head[8:12] != b"WAVE":
+                return None
+            fmt = None
+            while True:
+                ch = fh.read(8)
+                if len(ch) < 8:
+                    break
+                cid, size = ch[:4], struct.unpack("<I", ch[4:])[0]
+                if cid == b"fmt ":
+                    raw = fh.read(16)
+                    if len(raw) < 16:
+                        return None
+                    _, channels, rate, byte_rate, _, bits = struct.unpack("<HHIIHH", raw)
+                    fmt = (channels, rate, byte_rate, bits)
+                    fh.seek(size - 16 + (size & 1), 1)
+                elif cid == b"data" and fmt:
+                    # RF64 keeps the real size elsewhere and writes 0xFFFFFFFF here
+                    known = fmt[2] > 0 and size != 0xFFFFFFFF
+                    return WavInfo(fmt[1], fmt[3], fmt[0], size / fmt[2] if known else None)
+                else:
+                    fh.seek(size + (size & 1), 1)
+            return WavInfo(fmt[1], fmt[3], fmt[0], None) if fmt else None
+    except (OSError, struct.error):
+        return None
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
