@@ -1,3 +1,4 @@
+import json
 import os
 import sqlite3
 
@@ -83,10 +84,41 @@ def test_cli_library_index_dry_run_writes_nothing(tmp_path, monkeypatch, capsys)
     make_wav(master / "KICKS/K.wav")
     db = tmp_path / "library.sqlite"
 
-    assert main(["library", "index", str(master), "--db", str(db), "--dry-run"]) == 0
-    assert "1 to add" in capsys.readouterr().out
+    ratings = write_ratings(tmp_path / "ratings.json", {"KICKS/K.wav": "keep"})
+    flags = ["library", "index", str(master), "--db", str(db), "--ratings", str(ratings)]
+
+    assert main(flags + ["--dry-run"]) == 0
+    assert "1 to add, 0 to update, 0 unchanged, 0 to remove, 0 unreadable, 1 rated" in capsys.readouterr().out
     assert not db.exists()
 
-    assert main(["library", "index", str(master), "--db", str(db)]) == 0
+    assert main(flags) == 0
     assert "1 added" in capsys.readouterr().out
-    assert len(rows(db)) == 1
+    assert rows(db)["KICKS/K.wav"]["rating"] == "keep"
+
+
+def write_ratings(path, ratings):
+    path.write_text(json.dumps({"version": 1, "ratings": {
+        f"/src/{out}": {"verdict": v, "category": out.split("/")[0], "out": out} for out, v in ratings.items()}}))
+    return path
+
+
+def test_index_fills_ratings_from_fourier_ratings_json(tmp_path):
+    master = tmp_path / "master"
+    make_wav(master / "KICKS/punchy/K.wav")
+    make_wav(master / "PADS/P.wav")
+    db = tmp_path / "library.sqlite"
+    ratings = write_ratings(tmp_path / "ratings.json", {"KICKS/punchy/K.wav": "keep", "HATS/gone.wav": "drop"})
+
+    library.index(master, db, ratings=library.load_ratings(ratings))
+    assert {p: r["rating"] for p, r in rows(db).items()} == {"KICKS/punchy/K.wav": "keep", "PADS/P.wav": None}
+
+    # A new rating reaches unchanged files; a run without ratings keeps what's there.
+    write_ratings(ratings, {"PADS/P.wav": "misfiled"})
+    library.index(master, db, ratings=library.load_ratings(ratings))
+    assert {p: r["rating"] for p, r in rows(db).items()} == {"KICKS/punchy/K.wav": None, "PADS/P.wav": "misfiled"}
+    library.index(master, db)
+    assert rows(db)["PADS/P.wav"]["rating"] == "misfiled"
+
+    (tmp_path / "bad.json").write_text("[]")
+    with pytest.raises(ValueError, match="not a Fourier ratings file"):
+        library.load_ratings(tmp_path / "bad.json")
