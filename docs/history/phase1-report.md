@@ -1,5 +1,7 @@
 # Phase 1 report: test run on 4 packs
 
+Report files named here (summaries, CSVs, build logs) are relative to `~/sample-work/reports/` and were never committed.
+
 Date: 2026-10-26. The source library was only read. All output is under `~/sample-work/out`.
 Detail: `phase1/summary.md`, plus `phase1/dropped.csv` (every left-out file
 and its reasons), `phase1/picked.csv` (source → master path), `phase1/folders.csv` and

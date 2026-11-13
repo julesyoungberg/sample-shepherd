@@ -29,8 +29,8 @@ is bundled from npm.
 
 ## Placeholders
 
-These are marked "coming soon" on the page. Each one means signing up for an outside
-service, so none of them is real yet:
+These are marked "coming soon" on the page. Each needs an outside service, so none
+is set up yet:
 
 - Screenshots and the demo video: wait for the desktop app.
 - The download button: waits for the first app build.

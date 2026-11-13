@@ -1,5 +1,7 @@
 # Phase 2b results: keep more files, three folder levels
 
+Report files named here (summaries, CSVs, build logs) are relative to `~/sample-work/reports/` and were never committed.
+
 Plan: [phase2b-plan.md](phase2b-plan.md). Detail: `phase2b/summary.md` (why
 files were left out), `phase2b/structure.md` (every group and folder).
 Logs: `phase2b-build-output.txt`, `phase2b-render-*.txt`. Nothing is published, released or on the device.

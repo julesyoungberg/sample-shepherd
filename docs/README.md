@@ -29,13 +29,16 @@ page per task, with screenshots in `docs/app/images/`, next to the CLI pages abo
 - [Adding a device family](adding-a-device.md): sync to something other than Elektron.
 - [Our patches to Fourier](fourier-patches.md): what each does and whether it can go upstream.
 
+## Next device session
+
+- [Device session 1 checklist](device-session-1-checklist.md): the steps for the first
+  hands-on sync with the Digitakt II.
+
 ## Background
 
 How the first library was built, and the research behind the design. Useful for history,
 not needed to use the tool.
 
 - [Fourier and Elektroid research](research-fourier-elektroid.md)
-- [Device session 1 checklist](device-session-1-checklist.md): the steps for the first
-  hands-on sync with the Digitakt II.
 - [history/](history/): working notes, phase reports and plans from the first library
   build. Start with [the working notes](history/working-notes.md).

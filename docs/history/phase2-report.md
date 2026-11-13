@@ -1,5 +1,7 @@
 # Phase 2 report: full build of `sample packs` (2026-10-26/27)
 
+Report files named here (summaries, CSVs, build logs) are relative to `~/sample-work/reports/` and were never committed.
+
 The source library was only read. Everything is under `~/sample-work/out/full/`. Nothing was
 published or released, no device paths are locked, and the Digitakt II was not connected.
 
