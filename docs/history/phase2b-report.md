@@ -1,7 +1,7 @@
 # Phase 2b results: keep more files, three folder levels
 
-Plan: [phase2b-plan.md](phase2b-plan.md). Detail: [phase2b/summary.md](phase2b/summary.md) (why
-files were left out), [phase2b/structure.md](phase2b/structure.md) (every group and folder).
+Plan: [phase2b-plan.md](phase2b-plan.md). Detail: `phase2b/summary.md` (why
+files were left out), `phase2b/structure.md` (every group and folder).
 Logs: `phase2b-build-output.txt`, `phase2b-render-*.txt`. Nothing is published, released or on the device.
 
 ## Result

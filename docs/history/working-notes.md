@@ -2,7 +2,7 @@
 
 These were the README of the one-off project this tool grew from. They record how Jules's
 library was built and why things are the way they are. For using sample-shepherd, see
-[the README](../README.md).
+[the README](../../README.md).
 
 
 Builds a curated Digitakt II library from `~/Music/Ableton/User Library/Samples/sample packs`
@@ -40,7 +40,7 @@ No audio is ever committed.
 
 ## Phase 0: setup (done 2026-10-25)
 
-Results: [reports/phase0-report.md](reports/phase0-report.md).
+Results: [phase0-report.md](phase0-report.md).
 
 ```bash
 # install (project-local; nothing system-wide)
@@ -65,7 +65,7 @@ Source inspection used only `find`, `du` and `ls`. Per-pack counts are in `repor
 
 ## Phase 1: test run (done 2026-10-26; waiting for your listening review)
 
-Results: [reports/phase1-report.md](reports/phase1-report.md). 239 of 480 files picked, verify PASS,
+Results: [phase1-report.md](phase1-report.md). 239 of 480 files picked, verify PASS,
 no folder over 50 files, every Digitakt file 48 kHz/16-bit. Took 62 s to build and 6 s per render.
 
 Settings: `config/fourier.toml` (4 packs as library entries, `preset = "balanced"`, `retune = "off"`,
@@ -123,7 +123,7 @@ report under "Phase 1b". The Phase 1 file lists from before the patch are in `tm
 
 ## Phase 2: full build of `sample packs` (run 2026-10-26/27; waiting for your review)
 
-Results: [reports/phase2-report.md](reports/phase2-report.md). The build has 10,830 files in 317
+Results: [phase2-report.md](phase2-report.md). The build has 10,830 files in 317
 subfolders, none over 50, every Digitakt file 48 kHz/16-bit, 5.7 GB. **Verify failed 5 checks**,
 so the build is held in `out/full/master.next`. The report lists each failure and your options.
 Nothing is published or released.
@@ -151,8 +151,8 @@ Times: analysis about 2.5 h on 1 thread (cached now), build 12 min, renders 25 s
 
 ### Phase 2b: keep more files, three folder levels (built 2026-11-03; waiting for your review)
 
-Results: [reports/phase2b-report.md](reports/phase2b-report.md): 29,863 files, 1,122 folders, none over 50, verify
-failed 5 checks (held in `out/full2/master.next`). Plan: [reports/phase2b-plan.md](reports/phase2b-plan.md). Fourier patches 0004–0008 (branch
+Results: [phase2b-report.md](phase2b-report.md): 29,863 files, 1,122 folders, none over 50, verify
+failed 5 checks (held in `out/full2/master.next`). Plan: [phase2b-plan.md](phase2b-plan.md). Fourier patches 0004–0008 (branch
 `local/adaptive-folders`): adaptive folder counts (a full folder splits instead of cutting files)
 and a render-time third level `CATEGORY/group/family` named from Live 12's auto-tags
 (`FOLDER_GROUPS`). Config: new `config/overlay.yaml`, outputs in `out/full2/`, profiles
@@ -162,7 +162,7 @@ checked on the device). Phase 2's overlay and config are saved in `tmp/overlay.p
 
 ## Device sessions and Phase 3 (prepared, not run)
 
-- [reports/device-session-1-checklist.md](reports/device-session-1-checklist.md): backup first,
+- [device-session-1-checklist.md](../device-session-1-checklist.md): backup first,
   then the +Drive listing, free space and project sample lists, all into `~/sample-work/device/`.
   No uploads, deletes, moves or restores.
 - `scripts/drive_match.py` (shared matching), `scripts/project_coverage.py`, `scripts/delete_list.py`:
@@ -172,7 +172,7 @@ checked on the device). Phase 2's overlay and config are saved in `tmp/overlay.p
 
 ### Phase 2c: verify fixes and finer groups (built 2026-11-06; verify passed, master in `out/full2/master`)
 
-Plan: [reports/phase2c-plan.md](reports/phase2c-plan.md). 37 verify failures stored as Drop ratings
+Plan: [phase2c-plan.md](phase2c-plan.md). 37 verify failures stored as Drop ratings
 (`config/phase2b-drops.csv`); patch 0007 keeps drum words out of tonal folder names; patch 0008
 groups foley by its files' names and splits closed hats. Previews re-rendered with the new groups;
 rebuilt with your approval: 29,849 files, verify passed, master in place. Acapellas: waiting for your choice.

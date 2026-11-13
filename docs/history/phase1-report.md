@@ -1,9 +1,9 @@
 # Phase 1 report: test run on 4 packs
 
 Date: 2026-10-26. The source library was only read. All output is under `~/sample-work/out`.
-Detail: [phase1/summary.md](phase1/summary.md), plus `phase1/dropped.csv` (every left-out file
+Detail: `phase1/summary.md`, plus `phase1/dropped.csv` (every left-out file
 and its reasons), `phase1/picked.csv` (source → master path), `phase1/folders.csv` and
-`phase1/digitakt-files.csv`. Full build log: [phase1-build-output.txt](phase1-build-output.txt).
+`phase1/digitakt-files.csv`. Full build log: `phase1-build-output.txt`.
 
 ## Settings
 
@@ -125,8 +125,8 @@ You chose a local patch, since an overlay can't do it. Fourier is on local branc
 **Tests:** 20 new cases in `tests/test_routing_signals.py`. The default-settings snapshot was updated
 for the KICKS filter. Full suite: **2048 passed, 15 skipped**, up from 2028 passed before the patch.
 
-**Result** (full detail in [phase1b/summary.md](phase1b/summary.md), build log
-[phase1b-build-output.txt](phase1b-build-output.txt)):
+**Result** (full detail in `phase1b/summary.md`, build log
+`phase1b-build-output.txt`):
 
 | | Phase 1 | Phase 1b |
 |---|---:|---:|

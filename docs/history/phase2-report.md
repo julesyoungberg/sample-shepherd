@@ -10,8 +10,8 @@ Ableton/XO. **Verify failed 5 of 126 checks**, so Fourier kept the new master as
 decision from you, one is caused by our folder settings, and one is a folder-naming check.
 Previews of the held-back build are rendered for you to browse.
 
-Detail: [phase2/summary.md](phase2/summary.md) (categories, why files were left out, Digitakt checks),
-[phase2/structure.md](phase2/structure.md) (every subfolder and its file count). Also CSVs in
+Detail: `phase2/summary.md` (categories, why files were left out, Digitakt checks),
+`phase2/structure.md` (every subfolder and its file count). Also CSVs in
 `phase2/` (`picked`, `dropped`, `folders`, `digitakt-files`, `structure`), and the logs
 `phase2-build-output.txt`, `phase2-analyze-output.txt`, `phase2-build-time.txt` and
 `phase2-render-*.txt`.
@@ -173,7 +173,7 @@ You can stop after any step and still have a complete set of categories so far.
    analysis is cached), and repeat until verify passes and you're happy with it.
 3. **Then:** `fourier publish`, then `fourier render digitakt_2_50 --release v1`. That's the step
    that locks device paths, so it needs your explicit go-ahead.
-4. **Device session 1:** follow [device-session-1-checklist.md](device-session-1-checklist.md):
+4. **Device session 1:** follow [device-session-1-checklist.md](../device-session-1-checklist.md):
    back up, then capture the +Drive listing, free space and project sample lists.
 5. **Phase 3:** run `scripts/project_coverage.py` and `scripts/delete_list.py` on that data. Both
    are written and self-tested on made-up input (`tmp/phase3-selftest/`); neither has been run on
