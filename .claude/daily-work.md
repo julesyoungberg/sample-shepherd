@@ -1,4 +1,4 @@
-budget_minutes: 60
+budget_minutes: 45
 
 # Daily work log
 
@@ -80,3 +80,21 @@ triggers share this file). Newest last.
   ones in docs/desktop-app-plan.md: design direction, bundling Fourier, Apple Developer ID,
   Windows in v1, license.
 - Budget: 30, 25 and 25 minutes of 60; 30 isn't under half, so no change.
+
+## 2026-11-13 (Friday, weekday run)
+
+- Minutes used: about 25 of 60 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Fill the library index's rating from Fourier's ratings.json" (desktop app
+  plan, CLI piece 2, the rating column): `library index --ratings`, `load_ratings`, docs, one
+  new test and the CLI test extended. The open question from the last run (how a source-path
+  rating maps to a master file) answered itself: each rating in ratings.json records `out`,
+  its path in the master, as config/ratings-snapshot.json shows.
+- State found: tests green on main, no open PRs or issues. `graphify` isn't installed in the
+  cloud container, so the graph wasn't rebuilt.
+- Next: the app scaffold and /dev/style page, which add Node and Rust tooling, so they wait
+  for Jules's OK. Nothing CLI-side is left in milestone 1 of docs/desktop-app-plan.md.
+- Open questions for Jules: OK to add Node and Rust tooling for the app scaffold? Plus the
+  ones in docs/desktop-app-plan.md: design direction, bundling Fourier, Apple Developer ID,
+  Windows in v1, license.
+- Budget: 25, 25 and 25 minutes of 60; 30 is half, and 25 is under it, so all three ran
+  under half: lowered budget_minutes from 60 to 45.
