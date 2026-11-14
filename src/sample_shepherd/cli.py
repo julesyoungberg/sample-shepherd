@@ -574,7 +574,11 @@ def cmd_library_index(cfg, a) -> int:
              f"{fmt_bytes(ch.bytes_to_read)} to read")
         _out(f"(dry run: would write {db})")
         return 0
-    c = library.index(root, db, ch, ratings)
+
+    def progress(done, total, read, eta_s):
+        a.events.emit("progress", done=done, total=total, bytes=read, eta_s=eta_s)
+
+    c = library.index(root, db, ch, ratings, progress)
     a.events.summary.update(c)
     for s in ch.skipped:
         _err(f"skipped {s}")

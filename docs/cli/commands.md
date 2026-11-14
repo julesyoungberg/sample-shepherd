@@ -239,7 +239,8 @@ This is how the desktop app runs the CLI. The shapes are in
     Each row has an `id` for `plan-edit`.
   - `plan-edit`: the same rows and summary, after the edit.
 
-  `library index` sends no rows; its `result` summary has `added`, `updated`,
+  `library index` sends no rows, but a `progress` event after each file it reads
+  ([below](#progress-and-stopping-a-sync)); its `result` summary has `added`, `updated`,
   `unchanged`, `removed`, `skipped` (unreadable files) and `db` (the index file).
 
   The other commands send `start` and `result` or `error`, and their human text on stderr.
@@ -248,6 +249,9 @@ This is how the desktop app runs the CLI. The shapes are in
 
 ### Progress and stopping a sync
 
+- `library index` sends a `progress` event after each file it reads: `done` and `total`
+  (files to read this run: new or changed), `bytes` read, and `eta_s` (seconds left, `null`
+  until something is read). Unchanged files aren't read, so they don't count.
 - `sync` sends a `progress` event after each upload: `done` and `total` (uploads this run,
   not counting ones the log already has as done), `bytes` sent, and `eta_s` (seconds left,
   `null` until something is sent). Its `result` summary has the counts from the human
