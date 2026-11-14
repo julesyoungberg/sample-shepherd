@@ -116,9 +116,12 @@ def test_index_fills_ratings_from_fourier_ratings_json(tmp_path):
     write_ratings(ratings, {"PADS/P.wav": "misfiled"})
     library.index(master, db, ratings=library.load_ratings(ratings))
     assert {p: r["rating"] for p, r in rows(db).items()} == {"KICKS/punchy/K.wav": None, "PADS/P.wav": "misfiled"}
-    library.index(master, db)
+    os.utime(master / "PADS/P.wav", ns=(1, 1))
+    assert library.index(master, db)["updated"] == 1
     assert rows(db)["PADS/P.wav"]["rating"] == "misfiled"
 
     (tmp_path / "bad.json").write_text("[]")
     with pytest.raises(ValueError, match="not a Fourier ratings file"):
         library.load_ratings(tmp_path / "bad.json")
+    write_ratings(ratings, {"PADS/P.wav": 3})
+    assert library.load_ratings(ratings) == {}

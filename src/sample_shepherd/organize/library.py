@@ -132,7 +132,7 @@ def load_ratings(path: Path) -> dict[str, str]:
     if not isinstance(store, dict) or not isinstance(store.get("ratings"), dict):
         raise ValueError(f"{path}: not a Fourier ratings file (no 'ratings')")
     return {r["out"]: r["verdict"].lower() for r in store["ratings"].values()
-            if isinstance(r, dict) and r.get("out") and r.get("verdict")}
+            if isinstance(r, dict) and r.get("out") and isinstance(r.get("verdict"), str)}
 
 
 def index(root: Path, db: Path, changes: Changes | None = None,
