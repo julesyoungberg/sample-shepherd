@@ -561,23 +561,25 @@ def cmd_library_index(cfg, a) -> int:
     from sample_shepherd.organize import library
     root = Path(a.library).expanduser()
     db = Path(a.db).expanduser() if a.db else cfg.work_dir / "library.sqlite"
+    ratings = library.load_ratings(Path(a.ratings).expanduser()) if a.ratings else None
     ch = library.scan(root, db)
     c = ch.counts()
+    rated = f", {len(ratings.keys() & ch.stats.keys())} rated" if ratings is not None else ""
     a.events.summary.update(c, db=str(db))
     if a.dry_run:
         for s in ch.skipped:
             _err(f"would skip {s}")
         _out(f"{len(ch.add)} to add, {len(ch.update)} to update, {ch.unchanged} unchanged, "
-             f"{len(ch.remove)} to remove, {len(ch.skipped)} unreadable; "
+             f"{len(ch.remove)} to remove, {len(ch.skipped)} unreadable{rated}; "
              f"{fmt_bytes(ch.bytes_to_read)} to read")
         _out(f"(dry run: would write {db})")
         return 0
-    c = library.index(root, db, ch)
+    c = library.index(root, db, ch, ratings)
     a.events.summary.update(c)
     for s in ch.skipped:
         _err(f"skipped {s}")
     _out(f"{c['added']} added, {c['updated']} updated, {c['unchanged']} unchanged, "
-         f"{c['removed']} removed, {c['skipped']} skipped (unreadable) -> {db}")
+         f"{c['removed']} removed, {c['skipped']} skipped (unreadable){rated} -> {db}")
     return 0
 
 
@@ -635,6 +637,7 @@ def build_parser() -> argparse.ArgumentParser:
             "scan a library (read-only) into a SQLite index: path, category, duration, format, hash", dry=True)
     p.add_argument("library", help="the library folder, e.g. a Fourier master (only read)")
     p.add_argument("--db", help="the index file to create or update (default: <work_dir>/library.sqlite)")
+    p.add_argument("--ratings", help="$FOURIER_HOME/ratings.json: fill each file's rating from it (only read)")
 
     d = sub.add_parser("device", help="connected devices and their sample storage").add_subparsers(dest="sub", required=True)
     add(d, "ls", cmd_device_ls, "list connected devices", dry=True)

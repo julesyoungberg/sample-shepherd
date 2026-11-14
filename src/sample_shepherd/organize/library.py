@@ -1,12 +1,14 @@
 """The library index: a SQLite cache of a curated library (a Fourier master, or any folder of
 samples) that the desktop app's browser queries. One row per audio file: path, folder,
-category, duration, sample rate, channels, size and content hash.
+category, duration, sample rate, channels, size, content hash and, when given Fourier's
+ratings, the review verdict.
 
 The library is only read. The index is incremental: a file whose size and modification time
 match its row is not read again, so a rerun after a small change is quick.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -29,7 +31,7 @@ CREATE TABLE IF NOT EXISTS samples (
     size        INTEGER NOT NULL,
     mtime_ns    INTEGER NOT NULL,
     sha256      TEXT NOT NULL,
-    rating      TEXT                -- Fourier's review verdict; not filled in yet
+    rating      TEXT                -- Fourier's review verdict (keep, drop, misfiled); NULL if unrated
 );
 CREATE INDEX IF NOT EXISTS samples_folder ON samples (folder);
 CREATE INDEX IF NOT EXISTS samples_category ON samples (category);
@@ -123,8 +125,20 @@ def scan(root: Path, db: Path) -> Changes:
     return ch
 
 
-def index(root: Path, db: Path, changes: Changes | None = None) -> dict[str, int]:
-    """Bring the index at `db` up to date with the library at `root`. Returns counts."""
+def load_ratings(path: Path) -> dict[str, str]:
+    """{master path: verdict} from Fourier's ratings.json. Each rating records `out`, the
+    file's path in the master, so it matches index rows without the manifest."""
+    store = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(store, dict) or not isinstance(store.get("ratings"), dict):
+        raise ValueError(f"{path}: not a Fourier ratings file (no 'ratings')")
+    return {r["out"]: r["verdict"].lower() for r in store["ratings"].values()
+            if isinstance(r, dict) and r.get("out") and isinstance(r.get("verdict"), str)}
+
+
+def index(root: Path, db: Path, changes: Changes | None = None,
+          ratings: dict[str, str] | None = None) -> dict[str, int]:
+    """Bring the index at `db` up to date with the library at `root`. Returns counts.
+    `ratings` (from `load_ratings`) replaces every row's rating; without it they're kept."""
     root, db = Path(root), Path(db)
     ch = changes or scan(root, db)
     db.parent.mkdir(parents=True, exist_ok=True)
@@ -144,10 +158,14 @@ def index(root: Path, db: Path, changes: Changes | None = None) -> dict[str, int
                 st, info = ch.stats[rel], wav_info(root / rel)
                 folder = rel.rpartition("/")[0]
                 con.execute(
-                    "INSERT OR REPLACE INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)",
+                    "INSERT OR REPLACE INTO samples VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "
+                    "(SELECT rating FROM samples WHERE path = ?))",
                     (rel, folder, category_of(rel), info and info.seconds, info and info.rate,
-                     info and info.channels, st.st_size, st.st_mtime_ns, digest))
+                     info and info.channels, st.st_size, st.st_mtime_ns, digest, rel))
             con.executemany("DELETE FROM samples WHERE path = ?", [(p,) for p in ch.remove])
+            if ratings is not None:
+                con.execute("UPDATE samples SET rating = NULL")
+                con.executemany("UPDATE samples SET rating = ? WHERE path = ?", [(v, p) for p, v in ratings.items()])
     finally:
         con.close()
     return ch.counts()

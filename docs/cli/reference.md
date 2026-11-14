@@ -119,6 +119,7 @@ Scan a library (read-only) into a SQLite index: path, category, duration, format
 | `--dry-run` | show what would happen; change nothing |
 | `library` | the library folder, e.g. a Fourier master (only read) |
 | `--db DB` | the index file to create or update (default: &lt;work_dir&gt;/library.sqlite) |
+| `--ratings RATINGS` | $FOURIER_HOME/ratings.json: fill each file's rating from it (only read) |
 
 ## `device`
 

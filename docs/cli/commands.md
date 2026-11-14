@@ -91,9 +91,13 @@ separate program with the environment from `[fourier] env`.
 - The category is the first folder named after one (`KICKS/...`, or `DRUMS/01_KICKS/...` in
   a four-level render). Files in no category folder have none.
 - Duration, sample rate and channels come from the WAV header; for other formats they're
-  empty. The `rating` column is empty for now.
-- `--dry-run` prints how many files it would add, update and remove, and how much it
-  would read to hash them, and writes nothing.
+  empty.
+- `--ratings $FOURIER_HOME/ratings.json` fills the `rating` column with your Fourier review
+  verdict (`keep`, `drop` or `misfiled`), matched by the master path each rating records.
+  The file is only read. Ratings are applied on every run that passes the flag, so a new
+  rating reaches files that didn't change; a run without it keeps the ratings already there.
+- `--dry-run` prints how many files it would add, update and remove, how many are rated,
+  and how much it would read to hash them, and writes nothing.
 
 ## device
 
