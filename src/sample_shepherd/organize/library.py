@@ -136,8 +136,8 @@ def load_ratings(path: Path) -> dict[str, str]:
             if isinstance(r, dict) and r.get("out") and isinstance(r.get("verdict"), str)}
 
 
-def _eta(t0: float, read: int, total: int) -> int | None:
-    return round((total - read) * (time.monotonic() - t0) / read) if read else None
+def _eta(t0: float, read: int, to_read: int) -> int | None:
+    return round((to_read - read) * (time.monotonic() - t0) / read) if read else None
 
 
 def index(root: Path, db: Path, changes: Changes | None = None,
@@ -150,7 +150,7 @@ def index(root: Path, db: Path, changes: Changes | None = None,
     root, db = Path(root), Path(db)
     ch = changes or scan(root, db)
     todo = ch.add + ch.update
-    t0, read = time.monotonic(), 0
+    t0, read, to_read = time.monotonic(), 0, ch.bytes_to_read
     db.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(db)
     try:
@@ -164,8 +164,8 @@ def index(root: Path, db: Path, changes: Changes | None = None,
                 except OSError as e:          # unreadable, or gone since the scan
                     ch.skipped.append(f"{rel}: {e.strerror or e}")
                     (ch.add if rel in ch.add else ch.update).remove(rel)
-                    ch.bytes_to_read -= ch.stats[rel].st_size   # so the estimate still reaches 0
-                    progress(n, len(todo), read, _eta(t0, read, ch.bytes_to_read))
+                    to_read -= ch.stats[rel].st_size   # so the estimate still reaches 0
+                    progress(n, len(todo), read, _eta(t0, read, to_read))
                     continue
                 st, info = ch.stats[rel], wav_info(root / rel)
                 folder = rel.rpartition("/")[0]
@@ -175,7 +175,7 @@ def index(root: Path, db: Path, changes: Changes | None = None,
                     (rel, folder, category_of(rel), info and info.seconds, info and info.rate,
                      info and info.channels, st.st_size, st.st_mtime_ns, digest, rel))
                 read += st.st_size
-                progress(n, len(todo), read, _eta(t0, read, ch.bytes_to_read))
+                progress(n, len(todo), read, _eta(t0, read, to_read))
             con.executemany("DELETE FROM samples WHERE path = ?", [(p,) for p in ch.remove])
             if ratings is not None:
                 con.execute("UPDATE samples SET rating = NULL")

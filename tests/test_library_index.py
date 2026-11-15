@@ -61,6 +61,21 @@ def test_index_skips_unreadable_files_and_indexes_the_rest(tmp_path):
     assert set(rows(db)) == {"KICKS/K.wav"}
 
 
+def test_progress_still_finishes_when_a_file_goes_missing_mid_run(tmp_path, monkeypatch):
+    clock = iter(range(0, 10**6, 1000))       # slow, so a wrong estimate can't round to 0
+    monkeypatch.setattr(library.time, "monotonic", lambda: next(clock))
+    master = tmp_path / "master"
+    make_wav(master / "KICKS/A.wav")
+    make_wav(master / "KICKS/B.wav")
+    db = tmp_path / "library.sqlite"
+    ch = library.scan(master, db)
+    (master / "KICKS/A.wav").unlink()
+    seen = []
+    assert library.index(master, db, ch, progress=lambda *a: seen.append(a))["skipped"] == 1
+    done, total, _, eta_s = seen[-1]
+    assert done == total == 2 and eta_s == 0
+
+
 def test_index_refuses_a_db_inside_the_master_or_another_masters_db(tmp_path):
     master = tmp_path / "master"
     make_wav(master / "KICKS/K.wav")
