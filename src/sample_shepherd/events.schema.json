@@ -58,13 +58,13 @@
       ]
     },
     {
-      "description": "sync: sent after each upload; stop it with a {\"type\": \"stop\"} line on stdin",
+      "description": "sync: sent after each upload; stop it with a {\"type\": \"stop\"} line on stdin. library index: sent after each file read",
       "properties": {
         "type": {"const": "progress"},
-        "done": {"type": "integer", "description": "uploads finished this run (sent, skipped or failed)"},
-        "total": {"type": "integer", "description": "uploads to do this run, not counting ones the log has as done"},
-        "bytes": {"type": "integer", "description": "bytes sent this run"},
-        "eta_s": {"type": ["integer", "null"], "description": "estimated seconds left; null until something is sent"}
+        "done": {"type": "integer", "description": "sync: uploads finished this run (sent, skipped or failed). library index: files read"},
+        "total": {"type": "integer", "description": "sync: uploads to do this run, not counting ones the log has as done. library index: new or changed files to read"},
+        "bytes": {"type": "integer", "description": "bytes sent (sync) or read (library index) this run"},
+        "eta_s": {"type": ["integer", "null"], "description": "estimated seconds left; null until something is sent or read"}
       },
       "required": ["done", "total", "bytes", "eta_s"]
     },

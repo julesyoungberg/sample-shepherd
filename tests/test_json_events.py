@@ -166,3 +166,14 @@ def test_sync_reports_progress_and_stops_between_files_when_asked(tmp_path, fake
     assert evs[-1]["type"] == "error" and evs[-1]["code"] == "stopped"
     uploaded = len(list((fake_device / "drive" / "KICKS").iterdir()))
     assert uploaded == progress[-1]["done"] < 6
+
+
+def test_library_index_reports_progress_for_each_file_it_reads(run_json, tmp_path):
+    """Hashing a 30,000-file master takes minutes, so the app shows a progress bar."""
+    master = tmp_path / "master"
+    sizes = sum(make_wav(master / "KICKS" / f"K{i}.wav").stat().st_size for i in range(3))
+    code, evs, _ = run_json("library", "index", str(master), "--db", str(tmp_path / "library.sqlite"))
+    assert code == 0
+    progress = [e for e in evs if e["type"] == "progress"]
+    assert [e["done"] for e in progress] == [1, 2, 3]
+    assert progress[-1] == {**progress[-1], "total": 3, "bytes": sizes, "eta_s": 0}
