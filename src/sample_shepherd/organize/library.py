@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sqlite3
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -135,12 +136,21 @@ def load_ratings(path: Path) -> dict[str, str]:
             if isinstance(r, dict) and r.get("out") and isinstance(r.get("verdict"), str)}
 
 
+def _eta(t0: float, read: int, to_read: int) -> int | None:
+    return round((to_read - read) * (time.monotonic() - t0) / read) if read else None
+
+
 def index(root: Path, db: Path, changes: Changes | None = None,
-          ratings: dict[str, str] | None = None) -> dict[str, int]:
+          ratings: dict[str, str] | None = None,
+          progress=lambda done, total, read, eta_s: None) -> dict[str, int]:
     """Bring the index at `db` up to date with the library at `root`. Returns counts.
-    `ratings` (from `load_ratings`) replaces every row's rating; without it they're kept."""
+    `ratings` (from `load_ratings`) replaces every row's rating; without it they're kept.
+    `progress` is called after each file read with files done and to read, bytes read, and
+    the estimated seconds left (None until something is read)."""
     root, db = Path(root), Path(db)
     ch = changes or scan(root, db)
+    todo = ch.add + ch.update
+    t0, read, to_read = time.monotonic(), 0, ch.bytes_to_read
     db.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(db)
     try:
@@ -148,12 +158,14 @@ def index(root: Path, db: Path, changes: Changes | None = None,
             con.executescript(SCHEMA)
             _check_root(con, root, db)
             con.execute("INSERT OR REPLACE INTO meta VALUES ('root', ?)", (str(root.resolve()),))
-            for rel in ch.add + ch.update:
+            for n, rel in enumerate(todo, 1):
                 try:
                     digest = sha256(root / rel)
                 except OSError as e:          # unreadable, or gone since the scan
                     ch.skipped.append(f"{rel}: {e.strerror or e}")
                     (ch.add if rel in ch.add else ch.update).remove(rel)
+                    to_read -= ch.stats[rel].st_size   # so the estimate still reaches 0
+                    progress(n, len(todo), read, _eta(t0, read, to_read))
                     continue
                 st, info = ch.stats[rel], wav_info(root / rel)
                 folder = rel.rpartition("/")[0]
@@ -162,6 +174,8 @@ def index(root: Path, db: Path, changes: Changes | None = None,
                     "(SELECT rating FROM samples WHERE path = ?))",
                     (rel, folder, category_of(rel), info and info.seconds, info and info.rate,
                      info and info.channels, st.st_size, st.st_mtime_ns, digest, rel))
+                read += st.st_size
+                progress(n, len(todo), read, _eta(t0, read, to_read))
             con.executemany("DELETE FROM samples WHERE path = ?", [(p,) for p in ch.remove])
             if ratings is not None:
                 con.execute("UPDATE samples SET rating = NULL")

@@ -99,13 +99,28 @@ triggers share this file). Newest last.
 - Budget: 25, 25 and 25 minutes of 60; 30 is half, and 25 is under it, so all three ran
   under half: lowered budget_minutes from 60 to 45.
 
+## 2026-11-14 (Saturday, weekend run)
+
+- Minutes used: about 20 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR #23 "Report library index progress as --json events"
+  (https://github.com/julesyoungberg/sample-shepherd/pull/23; for the app's library screen,
+  milestone 2): a `progress` event after each file `library index` reads, same shape as
+  `sync`'s; schema descriptions, docs, one test.
+- State found: tests green on main, no open PRs or issues. Many old `claude/project-thread-*`
+  branches on the remote from merged PRs; left alone (deleting them is Jules's call).
+- Next: the app scaffold and /dev/style page, which add Node and Rust tooling, so they wait
+  for Jules's OK. Small CLI follow-up if needed: stop a `library index` run from the app.
+- Open questions for Jules: OK to add Node and Rust tooling for the app scaffold? Plus the
+  ones in docs/desktop-app-plan.md: design direction, bundling Fourier, Apple Developer ID,
+  Windows in v1, license.
+- Budget: 25, 25 and 20 minutes; 25 isn't under half of 45, so no change.
+
 ## 2026-11-15 (Sunday, weekend run)
 
 - Minutes used: about 10 of 45 (active work). Subagents: 0.
 - Shipped: nothing new. Tests green on main (112 passed), docs/cli/reference.md current.
-- State found: PR #23 (library index progress events, the 2026-11-14 run's) has
-  "Reviewer verdict: approved" but wasn't merged; asked its thread to merge it. No open
-  issues.
+- State found: PR #23 (library index progress events, the 2026-11-14 run's) was approved
+  but not merged; its thread merged it after a nudge. No open issues.
 - Considered and skipped: a cooperative stop for `library index`. It only reads the library
   and writes its own SQLite cache, so the app can simply kill it; `sync` is the only command
   that needs a stop line.
