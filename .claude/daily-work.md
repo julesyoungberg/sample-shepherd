@@ -114,3 +114,18 @@ triggers share this file). Newest last.
   ones in docs/desktop-app-plan.md: design direction, bundling Fourier, Apple Developer ID,
   Windows in v1, license.
 - Budget: 25, 25 and 20 minutes; 25 isn't under half of 45, so no change.
+
+## 2026-11-15 (Sunday, weekend run)
+
+- Minutes used: about 10 of 45 (active work). Subagents: 0.
+- Shipped: nothing new. Tests green on main (112 passed), docs/cli/reference.md current.
+- State found: PR #23 (library index progress events, the 2026-11-14 run's) was approved
+  but not merged; its thread merged it after a nudge. No open issues.
+- Considered and skipped: a cooperative stop for `library index`. It only reads the library
+  and writes its own SQLite cache, so the app can simply kill it; `sync` is the only command
+  that needs a stop line.
+- Next: the app scaffold and /dev/style page, still waiting for Jules's OK on Node and Rust
+  tooling (asked again as a decision card). Nothing CLI-side is left in milestone 1.
+- Open questions for Jules: the Node and Rust OK, plus those in docs/desktop-app-plan.md:
+  design direction, bundling Fourier, Apple Developer ID, Windows in v1, license.
+- Budget: 25, 20 and 10 minutes of 45; 25 isn't under half, so no change.
