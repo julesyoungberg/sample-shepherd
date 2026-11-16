@@ -129,3 +129,24 @@ triggers share this file). Newest last.
 - Open questions for Jules: the Node and Rust OK, plus those in docs/desktop-app-plan.md:
   design direction, bundling Fourier, Apple Developer ID, Windows in v1, license.
 - Budget: 25, 20 and 10 minutes of 45; 25 isn't under half, so no change.
+
+## 2026-11-16 (Monday, weekday run)
+
+- Minutes used: about 30 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Add the app frontend scaffold and the /dev/style page" (milestone 1 of
+  docs/desktop-app-plan.md): `app/` with SvelteKit SPA and Tailwind v4 tokens, the style
+  sheet at `/dev/style` (surfaces, type, category palette, buttons, inputs, table, canvas
+  waveform, Paper/Console toggle), Playwright tests, app/README.md, doc updates.
+- Found while testing: Tailwind v4 drops theme variables no utility uses, so the category
+  colors rendered transparent; fixed with `@theme static`. Two first-pick colors (snare, hat)
+  were under 3:1 on paper; the palette now shares one lightness at about 4:1 on both themes.
+- Skipped: the Tauri shell (`src-tauri/`). Building it needs WebKitGTK dev packages, a
+  system dependency the cloud container lacks, so it can't be checked here. Bits UI,
+  TanStack and d3 wait until a screen needs them. Playwright runs Chromium, not WebKit as
+  the plan says, because only Chromium is installed in cloud sessions.
+- Next: the Tauri shell, checked on Jules's Mac or with WebKitGTK installed (needs Jules's
+  OK); color-blind check of the category palette; screenshot baselines.
+- Open questions for Jules: pick the look on /dev/style (Paper or Console first); OK to
+  install WebKitGTK in the cloud environment, or build the shell on the Mac? Plus those in
+  docs/desktop-app-plan.md.
+- Budget: 20, 10 and 30 minutes of 45; 30 isn't under half, so no change.
