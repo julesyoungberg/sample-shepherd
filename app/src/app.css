@@ -1,0 +1,112 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/instrument-sans';
+
+/*
+  Design tokens for the "field manual" direction in docs/desktop-app-plan.md: paper and
+  ink, one signal color for anything that changes something, hairlines instead of
+  shadows. The landing page (site/src/app.css) uses the same paper, ink and signal values.
+  Departure Mono isn't on npm; until we ship its font files, the mono stack falls back to
+  the system's monospace font.
+*/
+/* static: emit every token, since the category colors are read through var() and canvas, not utilities. */
+@theme static {
+  --color-paper: #f3f0e8;
+  --color-panel: #ebe7dc;
+  --color-ink: #16150f;
+  --color-ink-soft: #57544a;
+  --color-rule: #cfcabd;
+  --color-signal: #ff4a1c;
+
+  /* One fixed hue per sample category, the same in both themes and in every table, waveform and
+     map. All share one lightness, which keeps about 4:1 contrast on both paper and console. */
+  --color-cat-kick: #c44b59;
+  --color-cat-snare: #9d6b22;
+  --color-cat-hat: #7d7828;
+  --color-cat-perc: #557f37;
+  --color-cat-bass: #2c8271;
+  --color-cat-tonal: #3c7aad;
+  --color-cat-fx: #766cb6;
+  --color-cat-foley: #a15d9c;
+  --color-cat-loop: #b35679;
+  --color-cat-vocal: #82735e;
+
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Departure Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+/* Dark ("console") values. Applied by the OS setting unless the user picks a theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-paper: #121110;
+    --color-panel: #1b1a17;
+    --color-ink: #ece8dd;
+    --color-ink-soft: #a29d90;
+    --color-rule: #34312b;
+  }
+}
+:root[data-theme='dark'] {
+  --color-paper: #121110;
+  --color-panel: #1b1a17;
+  --color-ink: #ece8dd;
+  --color-ink-soft: #a29d90;
+  --color-rule: #34312b;
+}
+
+@layer base {
+  html {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+  }
+  a { text-decoration: underline; text-underline-offset: 3px; }
+  a:hover { color: var(--color-signal); }
+  :focus-visible { outline: 2px solid var(--color-signal); outline-offset: 2px; }
+}
+
+/* Small-caps mono label for section numbers, like a device's folder names. */
+@utility label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+
+/* Diagonal hatch: marks deletes so they read without color. */
+@utility hatch-delete {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 5px,
+    var(--color-signal) 5px 6px
+  );
+}
+
+@layer components {
+  .btn {
+    height: 1.75rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    transition: background-color 150ms;
+  }
+  .btn:hover:not(:disabled), .btn[aria-pressed='true'] { background: var(--color-ink); color: var(--color-paper); }
+  .btn:disabled { border-color: var(--color-rule); color: var(--color-ink-soft); }
+  /* Signal buttons change files or the device; nothing else uses this color. */
+  .btn-signal { border-color: var(--color-signal); color: var(--color-signal); }
+  .btn-signal:hover:not(:disabled) { background: var(--color-signal); color: var(--color-paper); }
+  .field {
+    height: 1.75rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--color-rule);
+    background: var(--color-panel);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn { transition: none; }
+  }
+}

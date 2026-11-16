@@ -2,8 +2,9 @@
 
 A desktop app over the `sample-shepherd` CLI: browse and audition the library, run organize
 and export, see what's on the device, review a sync plan visually, and watch a sync run.
-Plan only, 2026-11-07. Nothing here is built yet, nothing touched a device, and no system
-dependencies were installed.
+Written 2026-11-07. Built so far: the CLI pieces of milestone 1 and the frontend scaffold
+with its style sheet page (`app/`, see [app/README.md](../app/README.md)). The Tauri shell
+and the sidecar are next.
 
 ## Summary
 
