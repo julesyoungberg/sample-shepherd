@@ -121,6 +121,14 @@ Scan a library (read-only) into a SQLite index: path, category, duration, format
 | `--db DB` | the index file to create or update (default: &lt;work_dir&gt;/library.sqlite) |
 | `--ratings RATINGS` | $FOURIER_HOME/ratings.json: fill each file's rating from it (only read) |
 
+### `library ls`
+
+List the indexed samples: path, category, duration, channels, rating, size.
+
+| Argument | Description |
+|---|---|
+| `--db DB` | the index file (default: &lt;work_dir&gt;/library.sqlite) |
+
 ## `device`
 
 Connected devices and their sample storage.

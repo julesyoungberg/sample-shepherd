@@ -13,8 +13,10 @@ import os
 import re
 import sqlite3
 import time
+from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Iterator
 
 from sample_shepherd.evaluate import CATEGORIES
 from sample_shepherd.sync.projects import sha256
@@ -124,6 +126,22 @@ def scan(root: Path, db: Path) -> Changes:
         ch.bytes_to_read += st.st_size
     ch.remove = sorted(known)
     return ch
+
+
+def samples(db: Path) -> Iterator[dict]:
+    """Each indexed sample, by path, as the library browser shows it."""
+    con = _connect_ro(db)
+    if con is None:
+        raise ValueError(f"no index at {db}; run `sample-shepherd library index` first")
+    con.row_factory = sqlite3.Row
+    with closing(con):
+        try:
+            cur = con.execute("SELECT path, folder, category, duration, sample_rate, channels, size, "
+                              "sha256, rating FROM samples ORDER BY path")
+        except sqlite3.DatabaseError as e:
+            raise ValueError(f"{db} isn't a library index ({e})") from None
+        for r in cur:
+            yield dict(r)
 
 
 def load_ratings(path: Path) -> dict[str, str]:

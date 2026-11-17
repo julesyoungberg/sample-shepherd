@@ -177,3 +177,25 @@ def test_library_index_reports_progress_for_each_file_it_reads(run_json, tmp_pat
     progress = [e for e in evs if e["type"] == "progress"]
     assert [e["done"] for e in progress] == [1, 2, 3]
     assert progress[-1] == {**progress[-1], "total": 3, "bytes": sizes, "eta_s": 0}
+
+
+def test_library_ls_streams_each_indexed_sample(run_json, tmp_path):
+    """The library browser loads its table from this."""
+    master = tmp_path / "master"
+    make_wav(master / "KICKS" / "K.wav")
+    make_wav(master / "loose.wav", channels=2)
+    db = tmp_path / "library.sqlite"
+    assert run_json("library", "index", str(master), "--db", str(db))[0] == 0
+    code, evs, _ = run_json("library", "ls", "--db", str(db))
+    assert code == 0
+    rows = {e["path"]: e for e in evs if e["type"] == "row"}
+    assert list(rows) == ["KICKS/K.wav", "loose.wav"]
+    assert rows["KICKS/K.wav"]["category"] == "KICKS" and rows["loose.wav"]["category"] is None
+    assert rows["loose.wav"]["channels"] == 2 and rows["loose.wav"]["folder"] == ""
+    assert evs[-1]["summary"] == {"samples": 2}
+
+    code, evs, _ = run_json("library", "ls", "--db", str(tmp_path / "none.sqlite"))
+    assert code == 2 and "library index" in evs[-1]["msg"]
+    (tmp_path / "notes.txt").write_text("not a database")
+    code, evs, _ = run_json("library", "ls", "--db", str(tmp_path / "notes.txt"))
+    assert code == 2 and "isn't a library index" in evs[-1]["msg"]
