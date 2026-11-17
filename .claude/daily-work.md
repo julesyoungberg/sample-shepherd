@@ -150,3 +150,18 @@ triggers share this file). Newest last.
   install WebKitGTK in the cloud environment, or build the shell on the Mac? Plus those in
   docs/desktop-app-plan.md.
 - Budget: 20, 10 and 30 minutes of 45; 30 isn't under half, so no change.
+
+## 2026-11-17 (Tuesday, weekday run)
+
+- Minutes used: about 25 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Add library ls: list the indexed samples, as --json rows for the app"
+  (milestone 2 of docs/desktop-app-plan.md). The plan said the browser "queries" the index
+  but not how; `library ls --json` streams one `row` event (kind `sample`) per sample, in
+  line with "one process per command". Schema, docs and one test.
+- State found: tests green on main (pytest and `pnpm check`), no open PRs or issues.
+- Next: the Library screen in `app/` (virtual table, folder tree, filters) fed by these
+  rows from a fixture until the Tauri shell exists. The Tauri shell still waits on
+  WebKitGTK in the cloud env or a build on Jules's Mac.
+- Open questions for Jules: Paper or Console look on /dev/style; WebKitGTK in the cloud
+  environment or build the shell on the Mac. Plus those in docs/desktop-app-plan.md.
+- Budget: 10, 30 and 25 minutes of 45; not all under half or at the cap, so no change.
