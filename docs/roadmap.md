@@ -4,8 +4,8 @@ Planned work that isn't started or isn't finished.
 
 ## Desktop app
 
-- Build it as planned in [desktop-app-plan.md](desktop-app-plan.md), starting with the
-  style sheet page where the look gets chosen.
+- Build it as planned in [desktop-app-plan.md](desktop-app-plan.md). The style sheet page
+  (`/dev/style` in `app/`) is up for Jules to choose the look; the Tauri shell is next.
 - Once screens exist: screenshots in the README, and step-by-step app guides with
   screenshots in `docs/app/`, generated from the Playwright fixtures.
 

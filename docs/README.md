@@ -15,8 +15,10 @@ install it. These pages go further.
 
 ## Desktop app
 
-Not built yet; the plan is in `desktop-app-plan.md`. Its guides will go in `docs/app/`, one
-page per task, with screenshots in `docs/app/images/`, next to the CLI pages above.
+In progress; the plan is in [desktop-app-plan.md](desktop-app-plan.md). The frontend and its
+style sheet page are in `app/` ([app/README.md](../app/README.md)). Its guides will go in
+`docs/app/`, one page per task, with screenshots in `docs/app/images/`, next to the CLI pages
+above.
 
 ## Plans
 
