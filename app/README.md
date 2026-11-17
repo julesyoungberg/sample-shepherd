@@ -18,6 +18,7 @@ Not here yet: the Tauri shell (`src-tauri/`) and the CLI sidecar.
 ```bash
 cd app
 pnpm install
+pnpm exec playwright install chromium   # first time only, for pnpm test
 pnpm dev        # http://localhost:5173/dev/style, reloads as you edit
 pnpm check      # Svelte and type checks
 pnpm test       # Playwright: builds, serves on port 4173, runs tests/

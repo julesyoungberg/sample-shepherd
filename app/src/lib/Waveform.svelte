@@ -7,6 +7,7 @@
   $effect(() => {
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
+    // shortcut: draws at the width it has on mount and doesn't redraw on resize; add a ResizeObserver when a resizable screen uses it.
     const width = canvas.clientWidth;
     canvas.width = width * dpr;
     canvas.height = height * dpr;
