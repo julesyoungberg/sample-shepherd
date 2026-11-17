@@ -587,6 +587,21 @@ def cmd_library_index(cfg, a) -> int:
     return 0
 
 
+def cmd_library_ls(cfg, a) -> int:
+    from sample_shepherd.organize import library
+    db = Path(a.db).expanduser() if a.db else cfg.work_dir / "library.sqlite"
+    n = 0
+    for n, r in enumerate(library.samples(db), 1):
+        a.events.emit("row", kind="sample", **r)
+        if not a.events.enabled:
+            dur = f"{r['duration']:.2f}s" if r["duration"] is not None else "-"
+            _out(f"{r['path']}\t{r['category'] or '-'}\t{dur}\t{r['channels'] or '-'}ch\t"
+                 f"{r['rating'] or '-'}\t{fmt_bytes(r['size'])}")
+    a.events.summary.update(samples=n)
+    _err(f"{n} samples in {db}")
+    return 0
+
+
 # ----------------------------------------------------------------------------- parser
 
 def build_parser() -> argparse.ArgumentParser:
@@ -642,6 +657,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("library", help="the library folder, e.g. a Fourier master (only read)")
     p.add_argument("--db", help="the index file to create or update (default: <work_dir>/library.sqlite)")
     p.add_argument("--ratings", help="$FOURIER_HOME/ratings.json: fill each file's rating from it (only read)")
+    p = add(lib, "ls", cmd_library_ls, "list the indexed samples: path, category, duration, channels, rating, size")
+    p.add_argument("--db", help="the index file (default: <work_dir>/library.sqlite)")
 
     d = sub.add_parser("device", help="connected devices and their sample storage").add_subparsers(dest="sub", required=True)
     add(d, "ls", cmd_device_ls, "list connected devices", dry=True)

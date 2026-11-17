@@ -54,6 +54,24 @@
             },
             "required": ["id", "action", "device_path", "local_path", "size", "reason", "hash"]
           }
+        },
+        {
+          "if": {"properties": {"kind": {"const": "sample"}}},
+          "then": {
+            "description": "library ls: one indexed sample, in path order",
+            "properties": {
+              "path": {"type": "string", "description": "relative to the library root, forward slashes"},
+              "folder": {"type": "string", "description": "the path's folder; empty at the top"},
+              "category": {"type": ["string", "null"], "description": "e.g. KICKS; null if no folder names one"},
+              "duration": {"type": ["number", "null"], "description": "seconds; null for non-WAV files"},
+              "sample_rate": {"type": ["integer", "null"]},
+              "channels": {"type": ["integer", "null"]},
+              "size": {"type": "integer"},
+              "sha256": {"type": "string"},
+              "rating": {"type": ["string", "null"], "description": "Fourier's review verdict (keep, drop, misfiled); null if unrated"}
+            },
+            "required": ["path", "folder", "category", "duration", "sample_rate", "channels", "size", "sha256", "rating"]
+          }
         }
       ]
     },

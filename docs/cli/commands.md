@@ -18,6 +18,7 @@ and its projects safe. Every flag is in the [command reference](reference.md);
 | `export render PROFILE` | Runs `fourier render` with our profiles | the output folder |
 | `export check RENDER --profile P` | Checks a render against the profile's limits | nothing |
 | `library index LIBRARY` | Indexes a library into SQLite for browsing | the index file |
+| `library ls` | Lists the indexed samples | nothing |
 | `device ls` / `device info` | Connected devices / a device's filesystems | reads the device |
 | `device listing --out CSV` | Lists the sample storage: `path,size,hash` | reads the device; writes `CSV` |
 | `projects ls` | Lists project slots | reads the device |
@@ -98,6 +99,10 @@ separate program with the environment from `[fourier] env`.
   rating reaches files that didn't change; a run without it keeps the ratings already there.
 - `--dry-run` prints how many files it would add, update and remove, how many are rated,
   and how much it would read to hash them, and writes nothing.
+- `library ls` prints every indexed sample, one per line, sorted by path: path, category,
+  duration, channels, rating and size. It only reads the index (`--db`, same default).
+  With `--json`, each sample is a `row` event with every column but the modification
+  time; the app's library browser loads its table from these.
 
 ## device
 

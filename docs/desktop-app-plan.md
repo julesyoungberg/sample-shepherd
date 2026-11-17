@@ -133,7 +133,7 @@ to stdout and nothing else (human text goes to stderr):
 2. `library index --json`: scan a curated master (read-only) and write a SQLite cache in
    the app's data folder: path, folder, category, duration, sample rate, channels, size,
    content hash, and the rating from Fourier's review data when there is one (read-only,
-   the same ratings `fourier review` sets; the column is simply empty without them). Incremental by mtime and size. The browser queries this.
+   the same ratings `fourier review` sets; the column is simply empty without them). Incremental by mtime and size. The browser loads it with `library ls --json`, one `row` event per sample.
 3. `tools --json`: the versions and paths of `elektroid-cli` and `fourier`, and what each
    enables. The onboarding screen is this command, drawn.
 4. `plan --json` row stream and `plan-edit` (exclude or include rows by id), so a reviewed
