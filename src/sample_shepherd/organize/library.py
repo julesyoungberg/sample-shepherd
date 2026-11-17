@@ -135,8 +135,12 @@ def samples(db: Path) -> Iterator[dict]:
         raise ValueError(f"no index at {db}; run `sample-shepherd library index` first")
     con.row_factory = sqlite3.Row
     with closing(con):
-        for r in con.execute("SELECT path, folder, category, duration, sample_rate, channels, size, "
-                             "sha256, rating FROM samples ORDER BY path"):
+        try:
+            cur = con.execute("SELECT path, folder, category, duration, sample_rate, channels, size, "
+                              "sha256, rating FROM samples ORDER BY path")
+        except sqlite3.DatabaseError as e:
+            raise ValueError(f"{db} isn't a library index ({e})") from None
+        for r in cur:
             yield dict(r)
 
 

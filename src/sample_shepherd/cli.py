@@ -595,7 +595,7 @@ def cmd_library_ls(cfg, a) -> int:
         a.events.emit("row", kind="sample", **r)
         if not a.events.enabled:
             dur = f"{r['duration']:.2f}s" if r["duration"] is not None else "-"
-            _out(f"{r['path']}\t{r['category'] or '-'}\t{dur}\t{r['channels'] or '-'}ch\t"
+            _out(f"{r['path']}\t{r['category'] or '-'}\t{dur}\t{str(r['channels']) + 'ch' if r['channels'] else '-'}\t"
                  f"{r['rating'] or '-'}\t{fmt_bytes(r['size'])}")
     a.events.summary.update(samples=n)
     _err(f"{n} samples in {db}")

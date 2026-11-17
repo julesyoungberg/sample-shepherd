@@ -196,3 +196,6 @@ def test_library_ls_streams_each_indexed_sample(run_json, tmp_path):
 
     code, evs, _ = run_json("library", "ls", "--db", str(tmp_path / "none.sqlite"))
     assert code == 2 and "library index" in evs[-1]["msg"]
+    (tmp_path / "notes.txt").write_text("not a database")
+    code, evs, _ = run_json("library", "ls", "--db", str(tmp_path / "notes.txt"))
+    assert code == 2 and "isn't a library index" in evs[-1]["msg"]
