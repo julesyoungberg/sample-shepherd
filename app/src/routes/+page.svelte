@@ -3,6 +3,8 @@
 <main class="mx-auto max-w-2xl p-8">
   <p class="label">00 Start</p>
   <h1 class="mt-2 text-2xl font-semibold">sample-shepherd</h1>
-  <p class="mt-4">No screens yet. The <a href="/dev/style">style sheet</a> shows the look
-    every screen will reuse.</p>
+  <ul class="mt-4 space-y-1">
+    <li><a href="/library">Library</a>: browse the indexed samples (from a recorded fixture for now).</li>
+    <li><a href="/dev/style">Style sheet</a>: the look every screen reuses.</li>
+  </ul>
 </main>

@@ -1,0 +1,58 @@
+// The Library screen's data: samples from `library ls --json`, and the filters over them.
+
+// Fourier's categories (the index's `category`) grouped onto the palette in categories.js.
+const paletteOf = {
+  KICKS: 'kick', SNARES: 'snare', CLAPS: 'snare', HATS: 'hat', CYMBALS: 'hat',
+  TOMS: 'perc', PERC: 'perc', DRUMLOOPS: 'loop', PHRASES: 'loop', SUB: 'bass',
+  SYNTH: 'tonal', STABS: 'tonal', PADS: 'tonal', PIANO: 'tonal', ACOUSTIC: 'tonal', WAVES: 'tonal',
+  FX: 'fx', BLIPS: 'fx', VOX: 'vocal'
+};
+
+// The palette name for a sample's category, or null (no color) when it has none.
+export const paletteFor = (category) => paletteOf[category] ?? null;
+
+// Samples from the CLI's output: one JSON event per line, keeping the `sample` rows.
+export function parseSamples(text) {
+  return text
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line))
+    .filter((e) => e.type === 'row' && e.kind === 'sample');
+}
+
+// Every folder that holds samples or folders that do, with its sample count (including
+// subfolders), sorted so each folder follows its parent.
+export function folderTree(samples) {
+  const counts = new Map();
+  for (const s of samples) {
+    const parts = s.folder ? s.folder.split('/') : [];
+    for (let i = 1; i <= parts.length; i++) {
+      const path = parts.slice(0, i).join('/');
+      counts.set(path, (counts.get(path) ?? 0) + 1);
+    }
+  }
+  return [...counts]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([path, count]) => ({ path, name: path.split('/').at(-1), depth: path.split('/').length - 1, count }));
+}
+
+// Samples that match every filter that's set. `folder` includes its subfolders; `text`
+// matches the path, case-insensitively; `channels` is 'mono' or 'stereo'; `rating` is a
+// verdict or 'unrated'.
+export function filterSamples(samples, { text = '', folder = '', category = '', channels = '', rating = '' } = {}) {
+  const needle = text.trim().toLowerCase();
+  return samples.filter(
+    (s) =>
+      (!folder || s.folder === folder || s.folder.startsWith(folder + '/')) &&
+      (!needle || s.path.toLowerCase().includes(needle)) &&
+      (!category || s.category === category) &&
+      (!channels || (channels === 'mono' ? s.channels === 1 : s.channels >= 2)) &&
+      (!rating || (s.rating ?? 'unrated') === rating)
+  );
+}
+
+export function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+}
