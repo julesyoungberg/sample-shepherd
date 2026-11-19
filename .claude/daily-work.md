@@ -181,3 +181,21 @@ triggers share this file). Newest last.
 - Open questions for Jules: Paper or Console look (screenshots of both in project files,
   app-style/); WebKitGTK in the cloud environment or build the shell on the Mac.
 - Budget: 30, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-19 (Thursday, weekday run)
+
+- Minutes used: about 25 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR #28 "Refuse a --db that isn't a library index instead of a traceback"
+  (https://github.com/julesyoungberg/sample-shepherd/pull/28), the known gap from 11-17.
+  PR #29 "Add the library terrain: folders as bands sized by sample count"
+  (https://github.com/julesyoungberg/sample-shepherd/pull/29), milestone 2 visual 4.
+  Screenshots in project files, app-style/terrain-*.png.
+- Choice: the terrain is positioned buttons laid out in `library.js`, not SVG with
+  `d3-hierarchy`: no new dependency, and keyboard reachable. The plan says so now.
+- State found: tests green on main, no open PRs or issues.
+- Next: what's left of milestone 2 (waveforms, audition, inspector) needs audio from the
+  Tauri shell, which still waits on WebKitGTK in the cloud env or a build on Jules's Mac.
+  Without it: TanStack Virtual for the table, or start milestone 3 screens from fixtures.
+- Open questions for Jules: Paper or Console look; WebKitGTK in the cloud environment or
+  build the shell on the Mac.
+- Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
