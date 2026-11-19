@@ -42,7 +42,10 @@ test('a folder shows its samples and its subfolders', async ({ page }) => {
 
 test('each folder follows its parent, even when a sibling name sorts before "/"', async ({ page }) => {
   await page.goto('/library');
-  const names = await page.getByRole('navigation', { name: 'Folders' }).getByRole('button').evaluateAll((els) =>
+  const folders = page.getByRole('navigation', { name: 'Folders' });
+  // evaluateAll doesn't wait, so wait for the tree to be drawn first.
+  await expect(folders.getByRole('button', { name: /^DRUMS EXTRA/ })).toBeVisible();
+  const names = await folders.getByRole('button').evaluateAll((els) =>
     els.map((el) => el.querySelector('span')?.textContent).filter(Boolean)
   );
   // "DRUMS EXTRA" sorts before "DRUMS/01_KICKS" as a plain string, which would draw DRUMS's subfolders under it.
