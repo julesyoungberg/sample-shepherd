@@ -31,8 +31,10 @@ export function folderTree(samples) {
       counts.set(path, (counts.get(path) ?? 0) + 1);
     }
   }
+  // Compare with '/' as the lowest character, so "Drums Extra" can't land between "Drums" and "Drums/Kicks".
+  const key = (path) => path.replaceAll('/', '\0');
   return [...counts]
-    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .sort(([a], [b]) => (key(a) < key(b) ? -1 : 1))
     .map(([path, count]) => ({ path, name: path.split('/').at(-1), depth: path.split('/').length - 1, count }));
 }
 
