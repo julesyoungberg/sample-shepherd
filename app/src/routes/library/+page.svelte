@@ -1,5 +1,5 @@
 <script>
-  import { filterSamples, folderTree, formatSize, paletteFor, parseSamples } from '$lib/library.js';
+  import { filterSamples, folderTree, formatSize, icicle, paletteFor, parseSamples } from '$lib/library.js';
   // shortcut: a recorded `library ls --json` run stands in for the CLI; load from the sidecar once the Tauri shell exists.
   import fixture from '$lib/fixtures/library-ls.jsonl?raw';
 
@@ -8,6 +8,8 @@
 
   const samples = parseSamples(fixture);
   const folders = folderTree(samples);
+  const terrain = icicle(samples);
+  const terrainDepth = Math.max(0, ...terrain.map((f) => f.depth + 1));
   const categoryOptions = [...new Set(samples.map((s) => s.category).filter(Boolean))].sort();
   const ratingOptions = [...new Set(samples.map((s) => s.rating ?? 'unrated'))].sort();
 
@@ -54,6 +56,17 @@
   </nav>
 
   <main class="overflow-auto px-6 py-2">
+    <!-- The terrain: each folder's width is its share of the samples. Clicking one filters like the tree. -->
+    <section class="relative mb-4 font-mono text-xs" style:height="{terrainDepth * 1.75}rem" aria-label="Terrain">
+      {#each terrain as f (f.path)}
+        <button class="absolute h-7 overflow-hidden border border-paper px-1 text-left whitespace-nowrap hover:brightness-110"
+          style:left="{f.x * 100}%" style:width="{f.w * 100}%" style:top="{f.depth * 1.75}rem"
+          style:background={paletteFor(f.category) ? `var(--color-cat-${paletteFor(f.category)})` : 'var(--color-panel)'}
+          class:text-paper={paletteFor(f.category)} class:outline-2={filters.folder === f.path} class:outline-signal={filters.folder === f.path}
+          aria-pressed={filters.folder === f.path} title="{f.path}: {f.count}"
+          onclick={() => (filters.folder = filters.folder === f.path ? '' : f.path)}>{f.name}</button>
+      {/each}
+    </section>
     <table class="w-full border-collapse font-mono text-xs">
       <thead class="sticky top-0 bg-paper">
         <tr class="h-7 border-b border-ink text-left">

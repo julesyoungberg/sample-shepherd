@@ -4,7 +4,7 @@ A desktop app over the `sample-shepherd` CLI: browse and audition the library, r
 and export, see what's on the device, review a sync plan visually, and watch a sync run.
 Written 2026-11-07. Built so far: the CLI pieces of milestone 1 and the frontend scaffold
 with its style sheet page (`app/`, see [app/README.md](../app/README.md)), and the first
-cut of the Library screen (folder tree, table, filters) fed by a recorded `library ls`
+cut of the Library screen (folder tree, terrain, table, filters) fed by a recorded `library ls`
 run. The Tauri shell and the sidecar are next.
 
 ## Summary
@@ -247,7 +247,8 @@ Ordered by how much each helps; the first four are in scope for v1.
    to its fate (keep because a project uses it, keep because it's protected, keep, delete).
    Band widths are bytes, so the cost of a sync in transfer time is visible before you start.
    Clicking a band filters the row list.
-4. **Library terrain** (SVG, `d3-hierarchy` icicle). Section → category → folder →
+4. **Library terrain** (an icicle of positioned buttons, laid out in `library.js`; no d3
+   needed yet). Section → category → folder →
    files, width by count or bytes. Doubles as navigation for the Library screen, and makes
    lopsided folders (the ones `FOLDER_ADAPTIVE` splits) obvious.
 5. **Project constellation** (canvas, force layout). Projects as large nodes, the samples
