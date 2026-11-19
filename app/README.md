@@ -10,6 +10,8 @@ What exists:
   Tailwind v4.
 - `/dev/style`, the style sheet: tokens, type, the category palette, buttons, inputs, a
   table and a waveform, in both themes. Every later screen reuses these pieces.
+- `/library`, the Library screen: folder tree, sample table, and filters by text, category,
+  channels and rating. It reads a recorded `library ls --json` run until the sidecar exists.
 
 Not here yet: the Tauri shell (`src-tauri/`) and the CLI sidecar.
 
@@ -32,5 +34,11 @@ pnpm test       # Playwright: builds, serves on port 4173, runs tests/
   `--color-cat-*` token.
 - `src/lib/Waveform.svelte`: draws peaks on a canvas, one lane per channel.
 - `src/routes/dev/style/+page.svelte`: the style sheet.
+- `src/lib/library.js`: parses `library ls --json` rows, builds the folder tree, filters
+  samples, and maps Fourier's categories (KICKS, PADS, ...) onto the palette.
+- `src/lib/fixtures/library-ls.jsonl`: the recorded run, made by indexing a throwaway
+  library of generated WAVs. Re-record it if the `sample` row changes.
+- `src/routes/library/+page.svelte`: the Library screen.
+- `tests/library.spec.js`: the Library screen lists the fixture and its filters work.
 - `tests/style.spec.js`: the style sheet renders, and every category color keeps 3:1
   contrast on both backgrounds (the WCAG minimum for graphics).

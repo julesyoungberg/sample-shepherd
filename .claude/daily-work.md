@@ -165,3 +165,19 @@ triggers share this file). Newest last.
 - Open questions for Jules: Paper or Console look on /dev/style; WebKitGTK in the cloud
   environment or build the shell on the Mac. Plus those in docs/desktop-app-plan.md.
 - Budget: 10, 30 and 25 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-18 (Wednesday, weekday run)
+
+- Minutes used: about 25 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Add the Library screen: folder tree, sample table and filters" (milestone 2
+  of docs/desktop-app-plan.md). `/library` in `app/` reads a recorded `library ls --json`
+  run; filters by text, folder, category, channels and rating. Fourier's 19 categories map
+  onto the 10 palette colors in `app/src/lib/library.js`.
+- Skipped: TanStack Virtual (the table renders at most 500 rows, marked as a shortcut);
+  the inspector, waveforms and audition, which need audio from the Tauri shell.
+- State found: tests green on main, no open PRs or issues.
+- Next: the library terrain (d3-hierarchy icicle) from the same rows, or the Tauri shell
+  once WebKitGTK or the Mac is available.
+- Open questions for Jules: Paper or Console look (screenshots of both in project files,
+  app-style/); WebKitGTK in the cloud environment or build the shell on the Mac.
+- Budget: 30, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
