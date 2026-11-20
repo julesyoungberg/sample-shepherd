@@ -1,0 +1,11 @@
+{"v": 1, "type": "start", "cmd": "export check", "dry_run": false}
+{"v": 1, "type": "row", "kind": "issue", "path": "05_VOX/Chops/VOX_BROKEN.wav", "problem": "not a readable WAV"}
+{"v": 1, "type": "row", "kind": "issue", "path": "03_HATS/Closed/HH_CL_02.wav", "problem": "24-bit, profile wants 16"}
+{"v": 1, "type": "row", "kind": "issue", "path": "03_HATS/Closed/HH_CL_01.wav", "problem": "44100 Hz, profile wants 48000"}
+{"v": 1, "type": "row", "kind": "issue", "path": "03_HATS/Closed/HH_CL_01.wav", "problem": "24-bit, profile wants 16"}
+{"v": 1, "type": "row", "kind": "issue", "path": "02_SNARES/Rim/SD_RIMSHOT_DRY_ROOM_TAKE_THREE_LONG.wav", "problem": "name is 35 characters; the device keeps 32"}
+{"v": 1, "type": "row", "kind": "issue", "path": "02_SNARES/Rim/SD_RIMSHOT_DRY_ROOM_TAKE_THREE_LONG_B.wav", "problem": "name is 37 characters; the device keeps 32"}
+{"v": 1, "type": "row", "kind": "issue", "path": "02_SNARES/Rim/SD_RIMSHOT_DRY_ROOM_TAKE_THREE_LONG_B.wav", "problem": "same first 32 characters as SD_RIMSHOT_DRY_ROOM_TAKE_THREE_LONG.wav"}
+{"v": 1, "type": "row", "kind": "issue", "path": "04_FX/Risers/Long/Extra", "problem": "4 folder levels, profile allows 3"}
+{"v": 1, "type": "row", "kind": "issue", "path": "01_KICKS/Acoustic", "problem": "52 files, profile allows 50"}
+{"v": 1, "type": "result", "ok": false, "exit": 1, "summary": {"files": 59, "folders": 5, "wav_checked": 59, "issues": 9}}

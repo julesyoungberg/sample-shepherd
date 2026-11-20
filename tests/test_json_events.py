@@ -110,6 +110,18 @@ def test_errors_become_error_events(run_json, tmp_path):
     assert evs[-1]["code"] == "user_error" and "nope" in evs[-1]["msg"]
 
 
+def test_export_check_streams_every_issue(run_json, tmp_path):
+    """The Export screen lists each issue to click through, not only the first --show."""
+    for i in range(3):
+        make_wav(tmp_path / "render" / "KICKS" / "hard" / f"k{i}.wav", rate=44100)
+    code, evs, _ = run_json("export", "check", str(tmp_path / "render"), "--profile", "digitakt_2_50_3", "--show", "1")
+    assert code == 1
+    rows = [e for e in evs if e["type"] == "row"]
+    assert sorted((r["kind"], r["path"]) for r in rows) == [("issue", f"KICKS/hard/k{i}.wav") for i in range(3)]
+    assert rows[0]["problem"] == "44100 Hz, profile wants 48000"
+    assert evs[-1]["ok"] is False and evs[-1]["summary"] == {"files": 3, "folders": 1, "wav_checked": 3, "issues": 3}
+
+
 def test_human_output_goes_to_stderr(run_json):
     code, evs, err = run_json("config", "show")
     assert code == 0 and "work_dir:" in err

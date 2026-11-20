@@ -74,7 +74,9 @@ separate program with the environment from `[fourier] env`.
 - `export check RENDER --profile P` reads the render and reports what the device would
   refuse or hide: too many files in a folder, folders too deep, the wrong sample rate or
   bit depth, and (for Elektron profiles) names over 32 characters. It exits 1 if it finds
-  anything, so it works in scripts.
+  anything, so it works in scripts. With `--json`, each issue is a `row` event (kind
+  `issue`, with `path` and `problem`), all of them whatever `--show` says; the app's Export
+  screen lists these.
 
 ## library
 

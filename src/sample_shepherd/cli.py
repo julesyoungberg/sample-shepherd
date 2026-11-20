@@ -222,6 +222,9 @@ def cmd_export_check(cfg, a) -> int:
     limit = a.max_name_length if a.max_name_length is not None else check.default_name_limit(prof)
     stats, issues = check.check_render(Path(a.render), prof, max_name_length=limit or None)
     _out(f"{stats['files']} files in {stats['folders']} folders, {stats['wav_checked']} WAV headers read")
+    for i in issues:
+        a.events.emit("row", kind="issue", path=i.path, problem=i.problem)
+    a.events.summary.update(stats, issues=len(issues))
     for i in issues[: a.show]:
         _out(f"  {i.path}: {i.problem}")
     if len(issues) > a.show:
