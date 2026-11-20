@@ -83,7 +83,10 @@ def _connect_ro(db: Path) -> sqlite3.Connection | None:
 
 
 def _check_root(con: sqlite3.Connection, root: Path, db: Path) -> None:
-    row = con.execute("SELECT value FROM meta WHERE key = 'root'").fetchone()
+    try:
+        row = con.execute("SELECT value FROM meta WHERE key = 'root'").fetchone()
+    except sqlite3.DatabaseError as e:
+        raise ValueError(f"{db} isn't a library index ({e}); pass another --db") from None
     if row and row[0] != str(root.resolve()):
         raise ValueError(f"{db} already indexes {row[0]}; pass another --db for {root}")
 

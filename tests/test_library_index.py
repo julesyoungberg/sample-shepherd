@@ -90,6 +90,18 @@ def test_index_refuses_a_db_inside_the_master_or_another_masters_db(tmp_path):
     with pytest.raises(ValueError, match="already indexes"):
         library.index(other, db)
 
+    # Not an index: a stray file, or some other SQLite database. Neither is touched.
+    notes = tmp_path / "notes.txt"
+    notes.write_text("not sqlite")
+    other_db = tmp_path / "other.sqlite"
+    with sqlite3.connect(other_db) as con:
+        con.execute("CREATE TABLE t (x)")
+    for bad in (notes, other_db):
+        before = bad.read_bytes()
+        with pytest.raises(ValueError, match="isn't a library index"):
+            library.index(master, bad)
+        assert bad.read_bytes() == before
+
 
 def test_cli_library_index_dry_run_writes_nothing(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
