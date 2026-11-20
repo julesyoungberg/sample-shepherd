@@ -38,6 +38,31 @@ export function folderTree(samples) {
     .map(([path, count]) => ({ path, name: path.split('/').at(-1), depth: path.split('/').length - 1, count }));
 }
 
+// The terrain: the folder tree as an icicle, one band per depth. Each folder spans `x` to
+// `x + w` (fractions of the whole library, by sample count) inside its parent's span, and
+// has a `category` when all its samples share one.
+export function icicle(samples) {
+  const cats = new Map();
+  for (const s of samples) {
+    const parts = s.folder ? s.folder.split('/') : [];
+    for (let i = 1; i <= parts.length; i++) {
+      const path = parts.slice(0, i).join('/');
+      if (!cats.has(path)) cats.set(path, new Set());
+      cats.get(path).add(s.category);
+    }
+  }
+  const next = new Map([['', 0]]); // where each parent's next child starts
+  return folderTree(samples).map((f) => {
+    const parent = f.path.split('/').slice(0, -1).join('/');
+    const x = next.get(parent);
+    const w = f.count / samples.length;
+    next.set(parent, x + w);
+    next.set(f.path, x);
+    const [only, ...rest] = cats.get(f.path);
+    return { ...f, x, w, category: rest.length ? null : only };
+  });
+}
+
 // Samples that match every filter that's set. `folder` includes its subfolders; `text`
 // matches the path, case-insensitively; `channels` is 'mono' or 'stereo'; `rating` is a
 // verdict or 'unrated'.

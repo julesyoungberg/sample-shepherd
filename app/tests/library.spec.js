@@ -53,3 +53,24 @@ test('each folder follows its parent, even when a sibling name sorts before "/"'
     'DRUMS', '01_KICKS', 'Acoustic', 'Electronic', '02_SNARES', '03_CLAPS', '04_HATS', 'Closed', 'Open', '07_PERC', 'DRUMS EXTRA'
   ]);
 });
+
+test('the terrain sizes each folder by its samples and filters on click', async ({ page }) => {
+  await page.goto('/library');
+  const terrain = page.getByRole('region', { name: 'Terrain' });
+  const box = (name) => terrain.getByRole('button', { name, exact: true }).boundingBox();
+  const [all, drums, kicks, acoustic] = await Promise.all([terrain.boundingBox(), box('DRUMS'), box('01_KICKS'), box('Acoustic')]);
+  // 13 of 24 samples are under DRUMS, 5 under its 01_KICKS, 3 under that folder's Acoustic.
+  expect(drums.width / all.width).toBeCloseTo(13 / 24, 2);
+  expect(kicks.width / all.width).toBeCloseTo(5 / 24, 2);
+  expect(acoustic.width / all.width).toBeCloseTo(3 / 24, 2);
+  // Each folder sits inside its parent's span, one band lower.
+  expect(kicks.x).toBeGreaterThanOrEqual(drums.x);
+  expect(kicks.x + kicks.width).toBeLessThanOrEqual(drums.x + drums.width + 0.5);
+  expect(kicks.y).toBeGreaterThan(drums.y);
+
+  await terrain.getByRole('button', { name: '01_KICKS', exact: true }).click();
+  await expect(rows(page)).toHaveCount(5);
+  // A second click clears the folder filter.
+  await terrain.getByRole('button', { name: '01_KICKS', exact: true }).click();
+  await expect(rows(page)).toHaveCount(24);
+});
