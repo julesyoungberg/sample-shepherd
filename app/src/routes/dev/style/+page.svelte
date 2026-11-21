@@ -41,7 +41,7 @@
       <h1 class="text-2xl font-semibold">Style sheet</h1>
     </div>
     <div class="flex gap-2" role="group" aria-label="Theme">
-      {#each [[null, 'System'], ['light', 'Paper'], ['dark', 'Console']] as [value, text]}
+      {#each [[null, 'Console'], ['light', 'Paper']] as [value, text]}
         <button class="btn" aria-pressed={theme === value} onclick={() => (theme = value)}>{text}</button>
       {/each}
     </div>

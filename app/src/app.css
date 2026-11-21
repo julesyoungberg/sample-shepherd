@@ -34,22 +34,15 @@
   --font-mono: 'Departure Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
 
-/* Dark ("console") values. Applied by the OS setting unless the user picks a theme. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --color-paper: #121110;
-    --color-panel: #1b1a17;
-    --color-ink: #ece8dd;
-    --color-ink-soft: #a29d90;
-    --color-rule: #34312b;
-  }
-}
-:root[data-theme='dark'] {
+/* Dark ("console") values: the default look. Paper applies only when the user picks it. */
+:root:not([data-theme='light']) {
   --color-paper: #121110;
   --color-panel: #1b1a17;
   --color-ink: #ece8dd;
   --color-ink-soft: #a29d90;
   --color-rule: #34312b;
+  /* Native scrollbars, select lists and checkboxes draw dark too. */
+  color-scheme: dark;
 }
 
 @layer base {
