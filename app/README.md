@@ -17,7 +17,10 @@ What exists:
 - `/export`, the Export check: every issue `export check --json` found in a render, sorted
   by path, with the file and folder counts. It reads a recorded run until the sidecar exists.
 
-Not here yet: the Tauri shell (`src-tauri/`) and the CLI sidecar.
+- `src-tauri/`, the Tauri 2 shell: a native window that loads the built frontend. It has
+  no Rust commands yet, so the screens still read recorded fixtures.
+
+Not here yet: the CLI sidecar.
 
 ## Run it
 
@@ -29,6 +32,21 @@ pnpm dev        # http://localhost:5173/dev/style, reloads as you edit
 pnpm check      # Svelte and TypeScript checks; fails on any type error
 pnpm test       # Playwright: builds, serves on port 4173, runs tests/
 ```
+
+### The desktop window (Tauri)
+
+Needs Rust (`rustup`) and, on Linux, WebKitGTK and the other packages in
+[Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/). macOS needs only the
+Xcode command line tools. The `sample-shepherd` cloud environment installs the Linux
+packages in its setup script.
+
+```bash
+pnpm tauri dev                  # window on the dev server, reloads as you edit
+pnpm tauri build --no-bundle    # release binary in src-tauri/target/release/
+pnpm tauri build                # installers (.dmg, .deb, ...) in src-tauri/target/release/bundle/
+```
+
+On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
 
 ## Where things are
 
@@ -56,3 +74,8 @@ pnpm test       # Playwright: builds, serves on port 4173, runs tests/
 - `tests/export.spec.ts`: the Export check lists every issue in the fixture, sorted.
 - `tests/style.spec.ts`: the style sheet renders, and every category color keeps 3:1
   contrast on both backgrounds (the WCAG minimum for graphics).
+- `src-tauri/tauri.conf.json`: the window, the content security policy (only the app's
+  own files; inline styles allowed because Svelte sets them) and the bundle icons.
+- `src-tauri/capabilities/default.json`: what the webview may call in Rust. Only Tauri's
+  core defaults for now.
+- `src-tauri/icons/`: made from `static/favicon.svg` with `pnpm tauri icon static/favicon.svg`.

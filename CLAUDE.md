@@ -13,6 +13,7 @@ it here.
   The file is generated (never edit it by hand) and `tests/test_cli_reference.py` fails while it's stale.
 - Desktop app (`app/`): `pnpm install`, then `pnpm check` and `pnpm test` (Playwright) in `app/`.
   The frontend is TypeScript in strict mode (`lang="ts"` in Svelte files); `pnpm check` fails on type errors.
+  After changing `app/src-tauri/`, also `pnpm tauri build --no-bundle` (needs WebKitGTK on Linux).
 - No linter or formatter is configured. Match the style of the file you're in.
 
 ## Never
