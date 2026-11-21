@@ -1,10 +1,10 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 // The fixture (src/lib/fixtures/library-ls.jsonl) is a recorded `library ls --json` run: 24 samples.
-const rows = (page) => page.locator('tbody tr');
+const rows = (page: Page) => page.locator('tbody tr');
 
 test('the library lists every sample from the CLI rows', async ({ page }) => {
-  const errors = [];
+  const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/library');
   await expect(rows(page)).toHaveCount(24);
@@ -57,8 +57,13 @@ test('each folder follows its parent, even when a sibling name sorts before "/"'
 test('the terrain sizes each folder by its samples and filters on click', async ({ page }) => {
   await page.goto('/library');
   const terrain = page.getByRole('region', { name: 'Terrain' });
-  const box = (name) => terrain.getByRole('button', { name, exact: true }).boundingBox();
-  const [all, drums, kicks, acoustic] = await Promise.all([terrain.boundingBox(), box('DRUMS'), box('01_KICKS'), box('Acoustic')]);
+  const box = async (l: Locator) => {
+    const b = await l.boundingBox();
+    if (!b) throw new Error(`${l} isn't drawn`);
+    return b;
+  };
+  const band = (name: string) => box(terrain.getByRole('button', { name, exact: true }));
+  const [all, drums, kicks, acoustic] = await Promise.all([box(terrain), band('DRUMS'), band('01_KICKS'), band('Acoustic')]);
   // 13 of 24 samples are under DRUMS, 5 under its 01_KICKS, 3 under that folder's Acoustic.
   expect(drums.width / all.width).toBeCloseTo(13 / 24, 2);
   expect(kicks.width / all.width).toBeCloseTo(5 / 24, 2);

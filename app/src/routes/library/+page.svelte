@@ -1,5 +1,5 @@
-<script>
-  import { filterSamples, folderTree, formatSize, icicle, paletteFor, parseSamples } from '$lib/library.js';
+<script lang="ts">
+  import { filterSamples, folderTree, formatSize, icicle, paletteFor, parseSamples, type Filters } from '$lib/library';
   // shortcut: a recorded `library ls --json` run stands in for the CLI; load from the sidecar once the Tauri shell exists.
   import fixture from '$lib/fixtures/library-ls.jsonl?raw';
 
@@ -13,7 +13,7 @@
   const categoryOptions = [...new Set(samples.map((s) => s.category).filter(Boolean))].sort();
   const ratingOptions = [...new Set(samples.map((s) => s.rating ?? 'unrated'))].sort();
 
-  let filters = $state({ text: '', folder: '', category: '', channels: '', rating: '' });
+  let filters: Required<Filters> = $state({ text: '', folder: '', category: '', channels: '', rating: '' });
   let shown = $derived(filterSamples(samples, filters));
 </script>
 
@@ -83,7 +83,7 @@
               {#if paletteFor(s.category)}<span class="mr-2 inline-block h-2 w-2" style:background="var(--color-cat-{paletteFor(s.category)})"></span>{/if}{s.category ?? '-'}
             </td>
             <td class="text-right">{s.duration?.toFixed(2) ?? '-'}</td>
-            <td class="pl-4">{s.channels === 1 ? 'mono' : s.channels >= 2 ? 'stereo' : '-'}</td>
+            <td class="pl-4">{s.channels === 1 ? 'mono' : (s.channels ?? 0) >= 2 ? 'stereo' : '-'}</td>
             <td class:text-signal={s.rating === 'drop' || s.rating === 'misfiled'}>{s.rating ?? '-'}</td>
             <td class="text-right">{formatSize(s.size)}</td>
           </tr>

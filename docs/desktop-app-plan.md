@@ -112,8 +112,9 @@ to stdout and nothing else (human text goes to stderr):
   child print to stdout and checks the stream still parses.
 - Exit codes stay as they are (0, 2 user error, 3 device error, 130 stopped).
 - A pytest per command checks its event shapes against a JSON Schema in
-  `src/sample_shepherd/events.schema.json`, and the UI generates TypeScript types from the
-  same file, so the two can't drift.
+  `src/sample_shepherd/events.schema.json`. The UI's TypeScript types for the events
+  (`app/src/lib/events.ts`) copy that file by hand, and a pytest
+  (`tests/test_app_event_types.py`) fails when the schema has a field they lack.
 - **One process per command, at first.** It matches the CLI, keeps the per-device lock
   simple, and a crash can't wedge the app. The sidecar is a PyInstaller `onedir` build
   (no unpacking on each launch, unlike `onefile`), so it starts in well under a second. If library browsing makes startup cost add up, add `sample-shepherd serve
@@ -248,7 +249,7 @@ Ordered by how much each helps; the first four are in scope for v1.
    to its fate (keep because a project uses it, keep because it's protected, keep, delete).
    Band widths are bytes, so the cost of a sync in transfer time is visible before you start.
    Clicking a band filters the row list.
-4. **Library terrain** (an icicle of positioned buttons, laid out in `library.js`; no d3
+4. **Library terrain** (an icicle of positioned buttons, laid out in `library.ts`; no d3
    needed yet). Section → category → folder →
    files, width by count or bytes. Doubles as navigation for the Library screen, and makes
    lopsided folders (the ones `FOLDER_ADAPTIVE` splits) obvious.
@@ -350,7 +351,7 @@ What exists today, extended:
   tests can't reach go here.
 - **The contract.** Each `--json` command is checked against `events.schema.json`, and the
   same test run saves its event streams as the UI's fixtures. The UI's TypeScript types are
-  generated from the schema. So Python and the UI share one source of truth, without a
+  checked against the schema. So Python and the UI share one source of truth, without a
   separate contract-test layer.
 
 ### Playwright: flows and looks

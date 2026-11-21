@@ -1,5 +1,5 @@
-<script>
-  import { parseCheck } from '$lib/export.js';
+<script lang="ts">
+  import { parseCheck } from '$lib/export';
   // shortcut: a recorded `export check --json` run stands in for the CLI; run it from the sidecar once the Tauri shell exists.
   import fixture from '$lib/fixtures/export-check.jsonl?raw';
 

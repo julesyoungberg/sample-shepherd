@@ -29,7 +29,7 @@ cd app
 pnpm install
 pnpm exec playwright install chromium   # first time only, for pnpm test
 pnpm dev        # http://localhost:5173/dev/style, reloads as you edit
-pnpm check      # Svelte and type checks
+pnpm check      # Svelte and TypeScript checks; fails on any type error
 pnpm test       # Playwright: builds, serves on port 4173, runs tests/
 ```
 
@@ -52,24 +52,27 @@ On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
 
 - `src/app.css`: the design tokens (`@theme`), dark ("console", the default) and light
   ("paper") values, and the button and field styles.
-- `src/lib/categories.js`: the sample categories, in display order. Each has a
+- `src/lib/categories.ts`: the sample categories, in display order. Each has a
   `--color-cat-*` token.
 - `src/lib/Waveform.svelte`: draws peaks on a canvas, one lane per channel.
 - `src/routes/dev/style/+page.svelte`: the style sheet.
-- `src/lib/library.js`: parses `library ls --json` rows, builds the folder tree, filters
+- `src/lib/events.ts`: types for the CLI's `--json` events, copied from
+  `src/sample_shepherd/events.schema.json`. Change both together; a pytest
+  (`tests/test_app_event_types.py`) fails when they differ.
+- `src/lib/library.ts`: parses `library ls --json` rows, builds the folder tree, filters
   samples, lays out the terrain (`icicle`), and maps Fourier's categories (KICKS, PADS, ...) onto the palette.
 - `src/lib/fixtures/library-ls.jsonl`: the recorded run, made by indexing a throwaway
   library of generated WAVs. Re-record it if the `sample` row changes.
 - `src/routes/library/+page.svelte`: the Library screen.
-- `src/lib/export.js`: parses `export check --json` issues and the run's counts.
+- `src/lib/export.ts`: parses `export check --json` issues and the run's counts.
 - `src/lib/fixtures/export-check.jsonl`: a recorded `export check --profile digitakt_2_50_3`
   run on a render of generated WAVs with one of each kind of issue. Re-record it if the
   `issue` row changes.
 - `src/routes/export/+page.svelte`: the Export check screen.
-- `tests/library.spec.js`: the Library screen lists the fixture, its filters work, and
+- `tests/library.spec.ts`: the Library screen lists the fixture, its filters work, and
   the terrain sizes folders by sample count.
-- `tests/export.spec.js`: the Export check lists every issue in the fixture, sorted.
-- `tests/style.spec.js`: the style sheet renders, and every category color keeps 3:1
+- `tests/export.spec.ts`: the Export check lists every issue in the fixture, sorted.
+- `tests/style.spec.ts`: the style sheet renders, and every category color keeps 3:1
   contrast on both backgrounds (the WCAG minimum for graphics).
 - `src-tauri/tauri.conf.json`: the window, the content security policy (only the app's
   own files; inline styles allowed because Svelte sets them) and the bundle icons.
