@@ -41,6 +41,8 @@
   --color-ink: #ece8dd;
   --color-ink-soft: #a29d90;
   --color-rule: #34312b;
+  /* Native scrollbars, select lists and checkboxes draw dark too. */
+  color-scheme: dark;
 }
 
 @layer base {
