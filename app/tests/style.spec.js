@@ -31,6 +31,16 @@ test('the style sheet shows every section without errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('the app opens in Console, the dark theme, even when the OS is light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/library');
+  const background = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  expect(await background()).toBe('rgb(18, 17, 16)');
+  await page.goto('/dev/style');
+  await page.getByRole('button', { name: 'Paper' }).click();
+  expect(await background()).toBe('rgb(243, 240, 232)');
+});
+
 // Category colors mark table rows, waveforms and maps, so they must stand out from the
 // background in both themes (WCAG asks 3:1 for graphics).
 for (const theme of ['Paper', 'Console']) {

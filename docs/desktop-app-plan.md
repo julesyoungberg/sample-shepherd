@@ -168,8 +168,8 @@ The brief: bespoke, not a generic AI-app or Bootstrap look. The direction is
 **"field manual"**: the app should feel like a well-made instrument and its printed
 manual, not like a SaaS dashboard.
 
-- **Surface:** warm paper (`#F3F0E8`-ish) and ink (`#16150F`) in light mode; a deep
-  warm-black console (`#121110`) with the same ink tones inverted in dark mode. Flat. No
+- **Surface:** a deep warm-black console (`#121110`) with light ink, the default look
+  (Jules's pick); warm paper (`#F3F0E8`-ish) and ink (`#16150F`) as the light theme. Flat. No
   drop shadows, no gradients, no glass, no rounded-2xl cards. Panels are separated by 1px
   hairlines and a visible grid.
 - **One signal color:** a hot orange-red (`#FF4A1C`-ish) used only for "this will change
@@ -401,14 +401,11 @@ new fixtures.
 
 ## Open questions for Jules
 
-1. **Design direction.** "Field manual" (paper and ink, one signal color) as described, or
-   a darker "console" direction first? The style sheet page in milestone 1 is where to
-   decide; changing tokens later is cheap.
-2. **Fourier in the app.** Bundle it without CLAP and download the model on first use
+1. **Fourier in the app.** Bundle it without CLAP and download the model on first use
    (recommended), bundle everything (large installer), or require the user's own install?
-3. **Signing.** Is an Apple Developer ID available for notarized macOS builds? Without it,
+2. **Signing.** Is an Apple Developer ID available for notarized macOS builds? Without it,
    builds still work for personal use.
-4. **Windows.** Worth a Windows build in v1, given sync needs an `elektroid-cli` that
+3. **Windows.** Worth a Windows build in v1, given sync needs an `elektroid-cli` that
    Elektroid doesn't ship for Windows?
-5. **License for sample-shepherd itself.** Still Jules's call; it doesn't block the app,
+4. **License for sample-shepherd itself.** Still Jules's call; it doesn't block the app,
    but it does block publishing any release.

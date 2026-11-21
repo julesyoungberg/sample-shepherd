@@ -9,7 +9,8 @@ What exists:
 - The frontend scaffold: SvelteKit in SPA mode (`adapter-static`, `ssr = false`) and
   Tailwind v4.
 - `/dev/style`, the style sheet: tokens, type, the category palette, buttons, inputs, a
-  table and a waveform, in both themes. Every later screen reuses these pieces.
+  table and a waveform, in both themes (Console, the dark default, and Paper). Every
+  later screen reuses these pieces.
 - `/library`, the Library screen: folder tree, the terrain (folders as nested bands, each
   as wide as its share of the samples, colored by category), sample table, and filters by
   text, category, channels and rating. It reads a recorded `library ls --json` run until the sidecar exists.
@@ -31,8 +32,8 @@ pnpm test       # Playwright: builds, serves on port 4173, runs tests/
 
 ## Where things are
 
-- `src/app.css`: the design tokens (`@theme`), light ("paper") and dark ("console") values,
-  and the button and field styles.
+- `src/app.css`: the design tokens (`@theme`), dark ("console", the default) and light
+  ("paper") values, and the button and field styles.
 - `src/lib/categories.js`: the sample categories, in display order. Each has a
   `--color-cat-*` token.
 - `src/lib/Waveform.svelte`: draws peaks on a canvas, one lane per channel.
