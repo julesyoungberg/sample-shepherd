@@ -5,7 +5,8 @@ and export, see what's on the device, review a sync plan visually, and watch a s
 Written 2026-11-07. Built so far: the CLI pieces of milestone 1 and the frontend scaffold
 with its style sheet page (`app/`, see [app/README.md](../app/README.md)), and the first
 cut of the Library screen (folder tree, terrain, table, filters) fed by a recorded `library ls`
-run. The Tauri shell and the sidecar are next.
+run, and the Tauri shell (`app/src-tauri/`) that opens it in a native window. The sidecar
+is next.
 
 ## Summary
 
