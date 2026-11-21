@@ -248,7 +248,7 @@ Ordered by how much each helps; the first four are in scope for v1.
    to its fate (keep because a project uses it, keep because it's protected, keep, delete).
    Band widths are bytes, so the cost of a sync in transfer time is visible before you start.
    Clicking a band filters the row list.
-4. **Library terrain** (an icicle of positioned buttons, laid out in `library.js`; no d3
+4. **Library terrain** (an icicle of positioned buttons, laid out in `library.ts`; no d3
    needed yet). Section → category → folder →
    files, width by count or bytes. Doubles as navigation for the Library screen, and makes
    lopsided folders (the ones `FOLDER_ADAPTIVE` splits) obvious.
