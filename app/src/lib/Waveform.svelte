@@ -1,11 +1,15 @@
-<script>
+<script lang="ts">
+  import type { Category } from './categories';
+
   // Draws peaks as mirrored bars, one lane per channel, in the category's color.
   // Peaks will come from Rust; the style sheet passes made-up ones.
-  let { peaks, category, height = 64 } = $props();
-  let canvas;
+  // `peaks` holds one array per channel, each value 0 to 1.
+  let { peaks, category, height = 64 }: { peaks: number[][]; category: Category; height?: number } = $props();
+  let canvas: HTMLCanvasElement;
 
   $effect(() => {
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
     // shortcut: draws at the width it has on mount and doesn't redraw on resize; add a ResizeObserver when a resizable screen uses it.
     const width = canvas.clientWidth;

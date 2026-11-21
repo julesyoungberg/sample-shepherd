@@ -1,5 +1,5 @@
-<script>
-  import { categories } from '$lib/categories.js';
+<script lang="ts">
+  import { categories } from '$lib/categories';
   import Waveform from '$lib/Waveform.svelte';
 
   // The one page Jules reviews for the look; every later screen reuses these pieces.
@@ -19,13 +19,13 @@
   ];
 
   // Seeded noise with a decaying envelope, so the waveform looks the same on every load.
-  function fakePeaks(seed, n = 160) {
+  function fakePeaks(seed: number, n = 160) {
     let s = seed;
     const rand = () => ((s = (s * 16807) % 2147483647) / 2147483647);
     return Array.from({ length: n }, (_, i) => Math.exp(-i / 40) * (0.6 + 0.4 * rand()));
   }
 
-  let theme = $state(null);
+  let theme: 'light' | null = $state(null);
   $effect(() => {
     if (theme) document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
@@ -41,7 +41,7 @@
       <h1 class="text-2xl font-semibold">Style sheet</h1>
     </div>
     <div class="flex gap-2" role="group" aria-label="Theme">
-      {#each [[null, 'Console'], ['light', 'Paper']] as [value, text]}
+      {#each [[null, 'Console'], ['light', 'Paper']] as const as [value, text]}
         <button class="btn" aria-pressed={theme === value} onclick={() => (theme = value)}>{text}</button>
       {/each}
     </div>

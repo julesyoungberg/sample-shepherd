@@ -12,6 +12,7 @@ it here.
 - After any change to a command or flag: `python -m sample_shepherd.cli_reference > docs/cli/reference.md`.
   The file is generated (never edit it by hand) and `tests/test_cli_reference.py` fails while it's stale.
 - Desktop app (`app/`): `pnpm install`, then `pnpm check` and `pnpm test` (Playwright) in `app/`.
+  The frontend is TypeScript in strict mode (`lang="ts"` in Svelte files); `pnpm check` fails on type errors.
 - No linter or formatter is configured. Match the style of the file you're in.
 
 ## Never

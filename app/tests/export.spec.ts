@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 // The fixture (src/lib/fixtures/export-check.jsonl) is a recorded `export check --json` run
 // on a Digitakt II render with 9 issues, sent in folder-walk order.
 test('the export check lists every issue, sorted by path', async ({ page }) => {
-  const errors = [];
+  const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/export');
   const rows = page.locator('tbody tr');
