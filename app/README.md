@@ -13,6 +13,8 @@ What exists:
 - `/library`, the Library screen: folder tree, the terrain (folders as nested bands, each
   as wide as its share of the samples, colored by category), sample table, and filters by
   text, category, channels and rating. It reads a recorded `library ls --json` run until the sidecar exists.
+- `/export`, the Export check: every issue `export check --json` found in a render, sorted
+  by path, with the file and folder counts. It reads a recorded run until the sidecar exists.
 
 Not here yet: the Tauri shell (`src-tauri/`) and the CLI sidecar.
 
@@ -40,7 +42,13 @@ pnpm test       # Playwright: builds, serves on port 4173, runs tests/
 - `src/lib/fixtures/library-ls.jsonl`: the recorded run, made by indexing a throwaway
   library of generated WAVs. Re-record it if the `sample` row changes.
 - `src/routes/library/+page.svelte`: the Library screen.
+- `src/lib/export.js`: parses `export check --json` issues and the run's counts.
+- `src/lib/fixtures/export-check.jsonl`: a recorded `export check --profile digitakt_2_50_3`
+  run on a render of generated WAVs with one of each kind of issue. Re-record it if the
+  `issue` row changes.
+- `src/routes/export/+page.svelte`: the Export check screen.
 - `tests/library.spec.js`: the Library screen lists the fixture, its filters work, and
   the terrain sizes folders by sample count.
+- `tests/export.spec.js`: the Export check lists every issue in the fixture, sorted.
 - `tests/style.spec.js`: the style sheet renders, and every category color keeps 3:1
   contrast on both backgrounds (the WCAG minimum for graphics).

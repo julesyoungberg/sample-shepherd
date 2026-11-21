@@ -56,6 +56,17 @@
           }
         },
         {
+          "if": {"properties": {"kind": {"const": "issue"}}},
+          "then": {
+            "description": "export check: one thing the device would refuse or hide; every issue, not only the first --show",
+            "properties": {
+              "path": {"type": "string", "description": "relative to the render, forward slashes; a file or a folder"},
+              "problem": {"type": "string", "description": "what's wrong, in words"}
+            },
+            "required": ["path", "problem"]
+          }
+        },
+        {
           "if": {"properties": {"kind": {"const": "sample"}}},
           "then": {
             "description": "library ls: one indexed sample, in path order",

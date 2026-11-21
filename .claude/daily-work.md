@@ -199,3 +199,19 @@ triggers share this file). Newest last.
 - Open questions for Jules: Paper or Console look; WebKitGTK in the cloud environment or
   build the shell on the Mac.
 - Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-20 (Friday, weekday run)
+
+- Minutes used: about 25 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Add export check --json issue rows and the Export check screen" (milestone 3
+  of docs/desktop-app-plan.md). `export check --json` sends every issue as a `row` (kind
+  `issue`), not only the first `--show`; `/export` in `app/` lists them from a recorded run.
+  Screenshots in project files, app-style/export-*.png.
+- Skipped: clicking an issue through to the Library (the index holds master paths, not
+  render paths); the render step with its dry run, which needs Fourier from the shell.
+- State found: tests green on main, no open PRs; issue #30 still open (no user path hits it).
+- Next: the Organize screen from a recorded `organize build` run (needs `--json` rows for
+  what moved), or the Tauri shell once WebKitGTK or the Mac is available.
+- Open questions for Jules: Paper or Console look; WebKitGTK in the cloud environment or
+  build the shell on the Mac.
+- Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
