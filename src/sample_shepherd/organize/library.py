@@ -173,11 +173,13 @@ def index(root: Path, db: Path, changes: Changes | None = None,
     todo = ch.add + ch.update
     t0, read, to_read = time.monotonic(), 0, ch.bytes_to_read
     db.parent.mkdir(parents=True, exist_ok=True)
+    fresh = not db.exists() or db.stat().st_size == 0
     con = sqlite3.connect(db)
     try:
         with con:
+            if not fresh:   # before SCHEMA, so a db that isn't an index gets no tables
+                _check_root(con, root, db)
             con.executescript(SCHEMA)
-            _check_root(con, root, db)
             con.execute("INSERT OR REPLACE INTO meta VALUES ('root', ?)", (str(root.resolve()),))
             for n, rel in enumerate(todo, 1):
                 try:

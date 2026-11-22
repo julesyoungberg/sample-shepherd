@@ -215,3 +215,18 @@ triggers share this file). Newest last.
 - Open questions for Jules: Paper or Console look; WebKitGTK in the cloud environment or
   build the shell on the Mac.
 - Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-22 (Sunday, weekend run)
+
+- Minutes used: about 25 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Keep library.index() from adding tables to a db that isn't an index"
+  (fixes issue #30). `index()` checks an existing db before creating its tables.
+- Tried and stopped: wiring the Library screen to the real CLI through the Tauri shell.
+  It needs `@tauri-apps/api` (Tauri's own JS package for `invoke()`), a new dependency,
+  so it waits on Jules.
+- State found: tests green on main, no open PRs; #30 was the only open issue.
+- Next: once Jules OKs `@tauri-apps/api`, a `library_ls` Rust command that runs
+  `sample-shepherd --json library ls` from PATH and feeds `/library`. After that the
+  PyInstaller sidecar build, which is also a new dependency.
+- Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
+- Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
