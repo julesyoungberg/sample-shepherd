@@ -1,0 +1,172 @@
+From 5a11fa9e69f32af2f31d563eb1b77764b1dad6bd Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 22 Nov 2026 01:45:34 +0000
+Subject: [PATCH] Nested group folders and shorter family names under a group
+
+A FOLDER_GROUPS group name with a slash ("electronic/punchy") is one folder per
+part while the profile's folder levels allow, the rest joined with "-". An "any"
+rule takes whatever no rule above it took, so a category can end in a named group
+instead of GROUP_FALLBACK. Under a group, a family folder drops the words its group
+and its category's noun already say ("808-tonal-long-tail" under 808 is
+"tonal-long-tail"), keeping its whole name when nothing with a letter is left or
+the short name would match a sibling's.
+---
+ src/fourier/packs/folder_groups.py | 33 +++++++++++++++++++++++++++++
+ src/fourier/packs/render.py        | 21 ++++++++++++------
+ tests/test_folder_groups.py        | 34 ++++++++++++++++++++++++++++++
+ 3 files changed, 81 insertions(+), 7 deletions(-)
+
+diff --git a/src/fourier/packs/folder_groups.py b/src/fourier/packs/folder_groups.py
+index 18f58cf..d2c715d 100644
+--- a/src/fourier/packs/folder_groups.py
++++ b/src/fourier/packs/folder_groups.py
+@@ -51,6 +51,9 @@ def _rule_hit(rule, entry: dict, family: str) -> bool:
+     if what == "tempo":
+         bpm = _family_bpm(family)
+         return bpm is not None and values[0] <= bpm < values[1]
++    if what == "any":
++        # a category's last rule: whatever no rule above took (a named group, not GROUP_FALLBACK)
++        return True
+     raise ValueError(f"FOLDER_GROUPS: unknown rule kind {what!r}")
+ 
+ 
+@@ -96,6 +99,36 @@ def category_groups(category: str, families: dict[str, list[dict]], rules=None,
+     return out
+ 
+ 
++def group_parts(group: str, room: int) -> list[str]:
++    """A group's folders, fitted to `room` folder levels: "electronic/punchy" is two folders
++    when there's room for two, else one, "electronic-punchy"."""
++    parts = [p for p in group.split("/") if p]
++    if len(parts) > room:
++        parts = parts[:max(room, 1) - 1] + ["-".join(parts[max(room, 1) - 1:])]
++    return parts
++
++
++def leaf_names(groups: dict[tuple[str, str], str]) -> dict[tuple[str, str], str]:
++    """{(category, family): folder name} for every grouped family: its name without the words
++    its group and its category's noun already say ("808-tonal-long-tail" under KICKS/808 is
++    "tonal-long-tail"). A family keeps its whole name when what's left has no letter
++    ("punchy-2" under punchy) or matches a sibling's folder name."""
++    from ..taxonomy import nouns
++    noun = nouns()
++    out = {}
++    for (cat, fam), g in groups.items():
++        said = set(re.split(r"[-/]", g.lower())) | {str(noun.get(cat) or "").lower()}
++        left = "-".join(w for w in fam.split("-") if w.lower() not in said)
++        out[(cat, fam)] = left if re.search(r"[a-zA-Z]", left) else fam
++    while True:
++        taken = Counter((k[0], groups[k], n.lower()) for k, n in out.items())
++        clash = [k for k, n in out.items() if taken[(k[0], groups[k], n.lower())] > 1 and n != k[1]]
++        if not clash:
++            return out
++        for k in clash:
++            out[k] = k[1]
++
++
+ def master_groups(master_dir) -> dict[tuple[str, str], str]:
+     """{(category, family): group} for every category of the master that gets a group level."""
+     man = json.loads((Path(master_dir) / "manifest.json").read_text())
+diff --git a/src/fourier/packs/render.py b/src/fourier/packs/render.py
+index 318f787..1c453e9 100644
+--- a/src/fourier/packs/render.py
++++ b/src/fourier/packs/render.py
+@@ -215,8 +215,11 @@ def _rel_dest(category: str, family: str, stem: str, allowed_sub: int, device=No
+     """Where a master file lands in the render, relative to the device root. The category
+     folder is numbered in play order (curate_config.category_dir: '01_KICKS'); with three
+     levels and a group (packs/folder_groups.py) the family folder sits in the group's; with
+-    four, the category folder sits in its section's (curate_config.CATEGORY_SECTIONS: DRUMS)."""
++    four, the category folder sits in its section's (curate_config.CATEGORY_SECTIONS: DRUMS).
++    A nested group ("electronic/punchy") is one folder per part while the levels allow,
++    the rest joined with "-" (folder_groups.group_parts)."""
+     from .curate_config import category_dir, category_section
++    from .folder_groups import group_parts
+     ext = _ext(device)
+     grouped = bool(group) and allowed_sub >= 3
+     section = category_section(category) if allowed_sub >= 4 else None
+@@ -225,7 +228,8 @@ def _rel_dest(category: str, family: str, stem: str, allowed_sub: int, device=No
+         if section:
+             cdir = Path(_device_name(_sanitize_filename(section), device)) / cdir
+         if grouped:
+-            cdir = cdir / _device_name(_sanitize_filename(group, None), device)
++            for part in group_parts(group, allowed_sub - 2 - (1 if section else 0)):
++                cdir = cdir / _device_name(_sanitize_filename(part, None), device)
+         if allowed_sub >= 2:
+             return (cdir / _device_name(_sanitize_filename(family, None), device)
+                     / _device_name(_sanitize_filename(stem, None), device, ext))
+@@ -234,7 +238,8 @@ def _rel_dest(category: str, family: str, stem: str, allowed_sub: int, device=No
+     if section:
+         cdir = Path(_sanitize_filename(section)) / cdir
+     if grouped:
+-        cdir = cdir / _sanitize_filename(group, None)
++        for part in group_parts(group, allowed_sub - 2 - (1 if section else 0)):
++            cdir = cdir / _sanitize_filename(part, None)
+     # the file's name is the master's (curate: exporter.canonical_stem), the same on every
+     # device: a render never shortens it ("learn the library once")
+     if allowed_sub >= 2:
+@@ -555,14 +560,16 @@ def _assignment(master_dir, device, lock=None):
+         files = [f for f in files if f.master not in over]
+     # the profile's own name rules and extension (None/".wav" for a profile that sets neither)
+     rules = device if (_names_apply(device) or _ext(device) != ".wav") else None
+-    groups = {}
++    groups, leaves = {}, {}
+     if sub >= 3:
+-        from .folder_groups import master_groups
++        from .folder_groups import leaf_names, master_groups
+         groups = master_groups(master_dir)
++        leaves = leaf_names(groups)
+     whole = {}
+     for f in files:
+-        whole.setdefault(f.key, _rel_dest(f.category, f.family, f.stem, sub, rules,
+-                                          group=groups.get((f.category, f.family))))
++        k = (f.category, f.family)
++        whole.setdefault(f.key, _rel_dest(f.category, leaves.get(k, f.family), f.stem, sub, rules,
++                                          group=groups.get(k)))
+     keys = list(whole)
+     fitted = dict(zip(keys, _fit_all([whole[k] for k in keys], prefix, limit)))
+     fresh = lambda f: fitted[f.key].as_posix()
+diff --git a/tests/test_folder_groups.py b/tests/test_folder_groups.py
+index 86b58cd..4cb18c6 100644
+--- a/tests/test_folder_groups.py
++++ b/tests/test_folder_groups.py
+@@ -131,3 +131,37 @@ def test_closed_hats_split_by_their_folder_words():
+     assert got["closed-dark-tonal"] == got["closed-tonal-2"] == "closed-tonal"
+     assert got["closed-clicky-3"] == got["closed-clicky-4"] == "closed-clicky"
+     assert got["closed-gated"] == "closed" and got["open-analog-clicky"] == got["open-tonal"] == "open"
++
++
++def test_a_nested_group_is_one_folder_per_part_while_the_levels_allow():
++    # five levels: section, category, two group folders, family
++    assert R._rel_dest("KICKS", "dark", "K_1", 5, group="electronic/punchy").as_posix() \
++        == "DRUMS/01_KICKS/electronic/punchy/dark/K_1.wav"
++    # four levels: the group's parts share one folder
++    assert R._rel_dest("KICKS", "dark", "K_1", 4, group="electronic/punchy").as_posix() \
++        == "DRUMS/01_KICKS/electronic-punchy/dark/K_1.wav"
++    assert R._rel_dest("KICKS", "dark", "K_1", 3, group="electronic/punchy").as_posix() \
++        == "01_KICKS/electronic-punchy/dark/K_1.wav"
++
++
++def test_an_any_rule_takes_what_no_rule_above_took():
++    rules = [("808", "name", ("808",)), ("electronic", "any", ())]
++    fams = _fams({"808-long": (5, None, []), "808-short": (5, None, []),
++                  "clicky-gated": (5, None, []), "dark": (5, None, [])})
++    got = G.category_groups("KICKS", fams, rules=rules, min_folders=2, fallback="other")
++    assert got == {"808-long": "808", "808-short": "808", "clicky-gated": "electronic", "dark": "electronic"}
++
++
++def test_a_grouped_family_drops_the_words_its_group_already_says():
++    groups = {("KICKS", "808-tonal-long-tail"): "808", ("KICKS", "808-short"): "808",
++              ("KICKS", "punchy-2"): "electronic/punchy", ("KICKS", "clicky-punchy-dark"): "electronic/punchy",
++              # "punchy-dark" would leave "dark", which a sibling is already called: both keep their names
++              ("KICKS", "punchy-dark"): "electronic/punchy", ("KICKS", "dark"): "electronic/punchy",
++              ("HATS", "closed-analog-clicky"): "closed/machine"}
++    got = G.leaf_names(groups)
++    assert got[("KICKS", "808-tonal-long-tail")] == "tonal-long-tail"
++    assert got[("KICKS", "808-short")] == "short"
++    assert got[("KICKS", "punchy-2")] == "punchy-2"                 # "2" alone says nothing
++    assert got[("KICKS", "clicky-punchy-dark")] == "clicky-dark"
++    assert got[("KICKS", "punchy-dark")] == "punchy-dark" and got[("KICKS", "dark")] == "dark"
++    assert got[("HATS", "closed-analog-clicky")] == "analog-clicky"
+-- 
+2.43.0
+

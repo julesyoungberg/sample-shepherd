@@ -1,0 +1,858 @@
+From 732b2d7f02123cf7be66439b0150eb6ae7ae8020 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 22 Nov 2026 02:02:54 +0000
+Subject: [PATCH] Drum groups: what it is, then how it sounds; one home per
+ sound
+
+KICKS and SNARES group by kind first (808, machine, breaks-lofi, rim) and the rest
+by character under electronic/; closed hats split once under closed/; PERC groups
+are instruments (hand-drums, shakers, blocks-claves, bells-cowbells, electronic)
+instead of materials and "other". Shakers and tambourines are PERC's (Live's tags
+and their names), and Live's Snap tag is CLAPS', so neither sits in two categories.
+---
+ src/fourier/packs/curate_config.py |  75 ++++---
+ tests/data/tunables_snapshot.json  | 313 ++++++++++++++++++-----------
+ tests/test_fallback_routing.py     |   8 +-
+ tests/test_folder_groups.py        |  41 +++-
+ tests/test_taxonomy.py             |   2 +-
+ 5 files changed, 288 insertions(+), 151 deletions(-)
+
+diff --git a/src/fourier/packs/curate_config.py b/src/fourier/packs/curate_config.py
+index c523e3b..6eed644 100644
+--- a/src/fourier/packs/curate_config.py
++++ b/src/fourier/packs/curate_config.py
+@@ -765,8 +765,10 @@ CURATION_SEED = _tunable("CURATION_SEED", 0)
+ ABLETON_TAG_CATEGORY = _tunable("ABLETON_TAG_CATEGORY", {
+     "Kick": "KICKS",
+     "Snare Hit": "SNARES", "Rim": "SNARES",
+-    "Closed Hihat": "HATS", "Open Hihat": "HATS", "Shaker": "HATS", "Tambourine": "HATS",
+-    "Clap": "CLAPS",
++    # shakers and tambourines are PERC's and snaps CLAPS', so each has one home (HATS and
++    # PERC both had shakers, CLAPS and PERC both snaps)
++    "Closed Hihat": "HATS", "Open Hihat": "HATS", "Shaker": "PERC", "Tambourine": "PERC",
++    "Clap": "CLAPS", "Snap": "CLAPS",
+     "High Tom": "TOMS", "Mid Tom": "TOMS", "Low Tom": "TOMS",
+     "Conga": "PERC", "Bongo": "PERC", "Wood": "PERC", "Cowbell": "PERC",
+     "Woodblock": "PERC", "Timbale": "PERC", "Cabasa": "PERC", "Guiro": "PERC",
+@@ -985,41 +987,53 @@ DIR_CAPS = _tunable("DIR_CAPS", True)
+ GROUP_MIN_FOLDERS = _tunable("GROUP_MIN_FOLDERS", 12)
+ GROUP_FALLBACK = _tunable("GROUP_FALLBACK", "other")
+ _HAND = ("Conga", "Bongo", "Djembe", "Tabla", "Timbale")
++_MACHINE = ("vintage", "drum-machine", "machine", "808", "909", "707", "606", "linndrum", "cr78", "dmx")
+ FOLDER_GROUPS = _tunable("FOLDER_GROUPS", {
++    # The drums: what it is first (808, machine, a hand drum), then how it sounds, at most
++    # about 8 choices a level. "a/b" is a nested group (folder_groups.group_parts).
+     "KICKS": [("808", "name", ("808",)), ("808", "tag", ("808 Bass",)),
+-              ("drum-machine", "name", ("vintage", "drum-machine", "analog", "machine")),
+-              ("dirty", "name", ("gritty", "crunchy", "distorted", "lo-fi", "dusty")),
+-              ("long", "name", ("long-tail", "heavy", "boomy")),
+-              ("tonal", "name", ("tonal", "low-tuned")),
+-              ("punchy", "name", ("clicky", "punchy", "snappy", "tight", "gated", "squashed", "attack")),
+-              ("soft", "name", ("soft", "wooden", "knock"))],
++              ("machine", "name", _MACHINE),
++              ("breaks-lofi", "name", ("breakbeat", "acoustic", "lo-fi", "dusty", "vinyl")),
++              ("electronic/dirty", "name", ("gritty", "crunchy", "distorted")),
++              ("electronic/long", "name", ("long-tail", "heavy", "boomy")),
++              ("electronic/tonal", "name", ("tonal", "low-tuned")),
++              ("electronic/soft", "name", ("soft", "wooden", "knock")),
++              ("electronic/clicky", "name", ("clicky",)),
++              ("electronic/punchy", "any", ())],
+     "SNARES": [("rim", "tag", ("Rim",)), ("rim", "name", ("rim", "rimshot")),
+-               ("clap-snare", "name", ("clap",)),
+-               ("breaks-lofi", "name", ("breakbeat", "lo-fi", "dusty", "crunchy", "vinyl")),
+-               ("bright", "name", ("bright", "metallic")),
+-               ("tonal", "name", ("tonal", "dark")),
+-               ("snappy", "name", ("snappy", "clicky", "punchy", "gated", "short", "squashed", "tight")),
+-               ("long", "name", ("long-tail", "soft"))],
++               ("machine", "name", _MACHINE),
++               ("breaks-lofi", "name", ("breakbeat", "acoustic", "lo-fi", "dusty", "crunchy", "vinyl")),
++               ("electronic/with-clap", "name", ("clap",)),
++               ("electronic/bright", "name", ("bright", "metallic")),
++               ("electronic/tonal", "name", ("tonal", "dark")),
++               ("electronic/long", "name", ("long-tail", "soft")),
++               ("electronic/snappy", "any", ())],
+     "CLAPS": [("snaps", "tag", ("Snap",)), ("snaps", "name", ("finger-snap", "snap")),
+-              ("long", "name", ("long-tail",)),
+-              ("short", "name", ("gated", "tight", "snappy", "clicky", "short"))],
+-    "HATS": [("shaker", "tag", ("Shaker",)), ("tambourine", "tag", ("Tambourine",)),
+-             ("pedal", "tag", ("Pedal Hihat",)),
+-             # closed hats, the long list, by their folder's words
+-             ("closed-machine", "name", ("analog", "808", "909", "707", "606", "drum-machine"), "closed"),
+-             ("closed-acoustic", "name", ("acoustic",), "closed"),
+-             ("closed-tonal", "name", ("tonal",), "closed"), ("closed-clicky", "name", ("clicky",), "closed"),
+-             ("closed", "band", ("closed",)), ("open", "band", ("open",))],
++              ("claps/long", "name", ("long-tail",)),
++              ("claps/short", "name", ("gated", "tight", "snappy", "clicky", "short")),
++              ("claps/medium", "any", ())],
++    "HATS": [("pedal", "tag", ("Pedal Hihat",)),
++             ("closed/machine", "name", ("analog", "drum-machine", *_MACHINE), "closed"),
++             ("closed/acoustic", "name", ("acoustic",), "closed"),
++             ("closed/tonal", "name", ("tonal", "dark"), "closed"),
++             ("closed/bright", "name", ("bright", "metallic", "sizzle"), "closed"),
++             ("closed/tight", "name", ("tight", "short", "gated", "squashed"), "closed"),
++             ("closed/clicky", "name", ("clicky",), "closed"),
++             ("closed/plain", "band", ("closed",)), ("open", "band", ("open",)),
++             ("open", "tag", ("Open Hihat",)), ("closed/plain", "any", ())],
+     "CYMBALS": [("ride", "band", ("ride",)), ("crash", "band", ("crash",)),
+                 ("ride", "tag", ("Ride",)), ("crash", "tag", ("Crash", "Splash"))],
+     "TOMS": [("high", "tag", ("High Tom",)), ("mid", "tag", ("Mid Tom",)), ("low", "tag", ("Low Tom",))],
++    # instruments, not materials: a cowbell is in bells-cowbells, a metallic zap in electronic
+     "PERC": [("hand-drums", "tag", _HAND),
+              ("hand-drums", "name", ("conga", "bongo", "djembe", "tabla", "timbale", "frame-drum")),
+-             ("wood", "tag", ("Wood",)), ("wood", "name", ("wood", "wooden", "clave", "block")),
+-             ("metal", "tag", ("Cowbell", "Bell", "Triangle", "Chime", "Gong", "Misc Mallets")),
+-             ("metal", "name", ("metallic", "cowbell", "bell")),
+-             ("shakers", "tag", ("Shaker", "Tambourine")), ("shakers", "name", ("shaken", "shaker")),
+-             ("snaps-claps", "tag", ("Snap", "Clap"))],
++             ("shakers", "tag", ("Shaker", "Tambourine", "Cabasa", "Guiro")),
++             ("shakers", "name", ("shaken", "shaker", "tambourine", "maraca", "cabasa")),
++             ("blocks-claves", "tag", ("Wood", "Woodblock")),
++             ("blocks-claves", "name", ("wood", "wooden", "clave", "block")),
++             ("bells-cowbells", "tag", ("Cowbell", "Bell", "Triangle", "Chime", "Gong", "Misc Mallets")),
++             ("bells-cowbells", "name", ("cowbell", "bell", "agogo", "triangle")),
++             ("electronic", "any", ())],
+     "DRUMLOOPS": [("tops", "band", ("tops",)), ("classic-breaks", "band", ("classic",)),
+                   ("060-100bpm", "tempo", (0, 100)), ("100-120bpm", "tempo", (100, 120)),
+                   ("120-130bpm", "tempo", (120, 130)), ("130-140bpm", "tempo", (130, 140)),
+@@ -1272,12 +1286,13 @@ DRUM_NAME_RULES = _tunable("DRUM_NAME_RULES", [
+     (_re.compile(r"(?<![a-z])(?:snares?|rims?|rimshots?|sidesticks?|side ?stick)(?![a-z])"
+                  r"|(?<![a-z])(?:snrs?|sd)" + _ABBR_END + r"|^rs(?= )|(?-i:(?<=[a-z])Snare)", _re.I), "SNARES"),
+     (_re.compile(r"(?<![a-z])(?:clap|claps|handclap|snaps?|finger ?snaps?)(?![a-z])", _re.I), "CLAPS"),
+-    (_re.compile(r"hi-?hats?|hihats?|(?<![a-z])(?:hat|hats|shakers?|tambourines?)(?![a-z])"
++    (_re.compile(r"hi-?hats?|hihats?|(?<![a-z])(?:hat|hats)(?![a-z])"
+                  r"|(?<![a-z])(?:hh|ch)" + _ABBR_END + r"|(?<![a-z+])(?-i:OH|oh)" + _ABBR_END, _re.I), "HATS"),
+     (_re.compile(r"(?<![A-Za-z])(?:Tom|tom|Toms|toms)(?![a-z])"), "TOMS"),
+     (_re.compile(r"cymbal|(?<![a-z])(?:crash|ride|splash|china)(?![a-z])|(?<![a-z])(?:cy|cymbs?)" + _ABBR_END
+                  + r"|(?-i:(?<=[a-z])Cymb)", _re.I), "CYMBALS"),
+-    (_re.compile(r"(?<![a-z])(?:conga|bongo|cowbell|clave|woodblock|timbale|agogo)s?(?![a-z])", _re.I),
++    (_re.compile(r"(?<![a-z])(?:conga|bongo|cowbell|clave|woodblock|timbale|agogo|shaker|tambourine|maraca"
++                 r"|cabasa)s?(?![a-z])", _re.I),
+      "PERC"),
+     (_re.compile(r"(?<![a-z])zaps?(?![a-z])", _re.I), "BLIPS"),
+ ])
+diff --git a/tests/data/tunables_snapshot.json b/tests/data/tunables_snapshot.json
+index 370e1d4..2b533a6 100644
+--- a/tests/data/tunables_snapshot.json
++++ b/tests/data/tunables_snapshot.json
+@@ -574,15 +574,29 @@
+      "HATS",
+      [
+       "Closed Hihat",
+-      "Open Hihat",
++      "Open Hihat"
++     ]
++    ],
++    [
++     "PERC",
++     [
+       "Shaker",
+-      "Tambourine"
++      "Tambourine",
++      "Conga",
++      "Bongo",
++      "Wood",
++      "Cowbell",
++      "Woodblock",
++      "Timbale",
++      "Cabasa",
++      "Guiro"
+      ]
+     ],
+     [
+      "CLAPS",
+      [
+-      "Clap"
++      "Clap",
++      "Snap"
+      ]
+     ],
+     [
+@@ -593,19 +607,6 @@
+       "Low Tom"
+      ]
+     ],
+-    [
+-     "PERC",
+-     [
+-      "Conga",
+-      "Bongo",
+-      "Wood",
+-      "Cowbell",
+-      "Woodblock",
+-      "Timbale",
+-      "Cabasa",
+-      "Guiro"
+-     ]
+-    ],
+     [
+      "CYMBALS",
+      [
+@@ -691,16 +692,20 @@
+     ],
+     [
+      "Shaker",
+-     "HATS"
++     "PERC"
+     ],
+     [
+      "Tambourine",
+-     "HATS"
++     "PERC"
+     ],
+     [
+      "Clap",
+      "CLAPS"
+     ],
++    [
++     "Snap",
++     "CLAPS"
++    ],
+     [
+      "High Tom",
+      "TOMS"
+@@ -3641,7 +3646,7 @@
+    {
+     "$tuple": [
+      {
+-      "$re": "hi-?hats?|hihats?|(?<![a-z])(?:hat|hats|shakers?|tambourines?)(?![a-z])|(?<![a-z])(?:hh|ch)(?![a-z])(?!\\d+[a-z])|(?<![a-z+])(?-i:OH|oh)(?![a-z])(?!\\d+[a-z])",
++      "$re": "hi-?hats?|hihats?|(?<![a-z])(?:hat|hats)(?![a-z])|(?<![a-z])(?:hh|ch)(?![a-z])(?!\\d+[a-z])|(?<![a-z+])(?-i:OH|oh)(?![a-z])(?!\\d+[a-z])",
+       "flags": 34
+      },
+      "HATS"
+@@ -3668,7 +3673,7 @@
+    {
+     "$tuple": [
+      {
+-      "$re": "(?<![a-z])(?:conga|bongo|cowbell|clave|woodblock|timbale|agogo)s?(?![a-z])",
++      "$re": "(?<![a-z])(?:conga|bongo|cowbell|clave|woodblock|timbale|agogo|shaker|tambourine|maraca|cabasa)s?(?![a-z])",
+       "flags": 34
+      },
+      "PERC"
+@@ -8722,36 +8727,55 @@
+       },
+       {
+        "$tuple": [
+-        "drum-machine",
++        "machine",
+         "name",
+         {
+          "$tuple": [
+           "vintage",
+           "drum-machine",
+-          "analog",
+-          "machine"
++          "machine",
++          "808",
++          "909",
++          "707",
++          "606",
++          "linndrum",
++          "cr78",
++          "dmx"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "dirty",
++        "breaks-lofi",
++        "name",
++        {
++         "$tuple": [
++          "breakbeat",
++          "acoustic",
++          "lo-fi",
++          "dusty",
++          "vinyl"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "electronic/dirty",
+         "name",
+         {
+          "$tuple": [
+           "gritty",
+           "crunchy",
+-          "distorted",
+-          "lo-fi",
+-          "dusty"
++          "distorted"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "long",
++        "electronic/long",
+         "name",
+         {
+          "$tuple": [
+@@ -8764,7 +8788,7 @@
+       },
+       {
+        "$tuple": [
+-        "tonal",
++        "electronic/tonal",
+         "name",
+         {
+          "$tuple": [
+@@ -8776,33 +8800,36 @@
+       },
+       {
+        "$tuple": [
+-        "punchy",
++        "electronic/soft",
+         "name",
+         {
+          "$tuple": [
+-          "clicky",
+-          "punchy",
+-          "snappy",
+-          "tight",
+-          "gated",
+-          "squashed",
+-          "attack"
++          "soft",
++          "wooden",
++          "knock"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "soft",
++        "electronic/clicky",
+         "name",
+         {
+          "$tuple": [
+-          "soft",
+-          "wooden",
+-          "knock"
++          "clicky"
+          ]
+         }
+        ]
++      },
++      {
++       "$tuple": [
++        "electronic/punchy",
++        "any",
++        {
++         "$tuple": []
++        }
++       ]
+       }
+      ]
+     ],
+@@ -8834,11 +8861,20 @@
+       },
+       {
+        "$tuple": [
+-        "clap-snare",
++        "machine",
+         "name",
+         {
+          "$tuple": [
+-          "clap"
++          "vintage",
++          "drum-machine",
++          "machine",
++          "808",
++          "909",
++          "707",
++          "606",
++          "linndrum",
++          "cr78",
++          "dmx"
+          ]
+         }
+        ]
+@@ -8850,6 +8886,7 @@
+         {
+          "$tuple": [
+           "breakbeat",
++          "acoustic",
+           "lo-fi",
+           "dusty",
+           "crunchy",
+@@ -8860,48 +8897,42 @@
+       },
+       {
+        "$tuple": [
+-        "bright",
++        "electronic/with-clap",
+         "name",
+         {
+          "$tuple": [
+-          "bright",
+-          "metallic"
++          "clap"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "tonal",
++        "electronic/bright",
+         "name",
+         {
+          "$tuple": [
+-          "tonal",
+-          "dark"
++          "bright",
++          "metallic"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "snappy",
++        "electronic/tonal",
+         "name",
+         {
+          "$tuple": [
+-          "snappy",
+-          "clicky",
+-          "punchy",
+-          "gated",
+-          "short",
+-          "squashed",
+-          "tight"
++          "tonal",
++          "dark"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "long",
++        "electronic/long",
+         "name",
+         {
+          "$tuple": [
+@@ -8910,6 +8941,15 @@
+          ]
+         }
+        ]
++      },
++      {
++       "$tuple": [
++        "electronic/snappy",
++        "any",
++        {
++         "$tuple": []
++        }
++       ]
+       }
+      ]
+     ],
+@@ -8941,7 +8981,7 @@
+       },
+       {
+        "$tuple": [
+-        "long",
++        "claps/long",
+         "name",
+         {
+          "$tuple": [
+@@ -8952,7 +8992,7 @@
+       },
+       {
+        "$tuple": [
+-        "short",
++        "claps/short",
+         "name",
+         {
+          "$tuple": [
+@@ -8964,6 +9004,15 @@
+          ]
+         }
+        ]
++      },
++      {
++       "$tuple": [
++        "claps/medium",
++        "any",
++        {
++         "$tuple": []
++        }
++       ]
+       }
+      ]
+     ],
+@@ -8972,49 +9021,58 @@
+      [
+       {
+        "$tuple": [
+-        "shaker",
++        "pedal",
+         "tag",
+         {
+          "$tuple": [
+-          "Shaker"
++          "Pedal Hihat"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "tambourine",
+-        "tag",
++        "closed/machine",
++        "name",
+         {
+          "$tuple": [
+-          "Tambourine"
++          "analog",
++          "drum-machine",
++          "vintage",
++          "drum-machine",
++          "machine",
++          "808",
++          "909",
++          "707",
++          "606",
++          "linndrum",
++          "cr78",
++          "dmx"
+          ]
+-        }
++        },
++        "closed"
+        ]
+       },
+       {
+        "$tuple": [
+-        "pedal",
+-        "tag",
++        "closed/acoustic",
++        "name",
+         {
+          "$tuple": [
+-          "Pedal Hihat"
++          "acoustic"
+          ]
+-        }
++        },
++        "closed"
+        ]
+       },
+       {
+        "$tuple": [
+-        "closed-machine",
++        "closed/tonal",
+         "name",
+         {
+          "$tuple": [
+-          "analog",
+-          "808",
+-          "909",
+-          "707",
+-          "606",
+-          "drum-machine"
++          "tonal",
++          "dark"
+          ]
+         },
+         "closed"
+@@ -9022,11 +9080,13 @@
+       },
+       {
+        "$tuple": [
+-        "closed-acoustic",
++        "closed/bright",
+         "name",
+         {
+          "$tuple": [
+-          "acoustic"
++          "bright",
++          "metallic",
++          "sizzle"
+          ]
+         },
+         "closed"
+@@ -9034,11 +9094,14 @@
+       },
+       {
+        "$tuple": [
+-        "closed-tonal",
++        "closed/tight",
+         "name",
+         {
+          "$tuple": [
+-          "tonal"
++          "tight",
++          "short",
++          "gated",
++          "squashed"
+          ]
+         },
+         "closed"
+@@ -9046,7 +9109,7 @@
+       },
+       {
+        "$tuple": [
+-        "closed-clicky",
++        "closed/clicky",
+         "name",
+         {
+          "$tuple": [
+@@ -9058,7 +9121,7 @@
+       },
+       {
+        "$tuple": [
+-        "closed",
++        "closed/plain",
+         "band",
+         {
+          "$tuple": [
+@@ -9077,6 +9140,26 @@
+          ]
+         }
+        ]
++      },
++      {
++       "$tuple": [
++        "open",
++        "tag",
++        {
++         "$tuple": [
++          "Open Hihat"
++         ]
++        }
++       ]
++      },
++      {
++       "$tuple": [
++        "closed/plain",
++        "any",
++        {
++         "$tuple": []
++        }
++       ]
+       }
+      ]
+     ],
+@@ -9204,91 +9287,95 @@
+       },
+       {
+        "$tuple": [
+-        "wood",
++        "shakers",
+         "tag",
+         {
+          "$tuple": [
+-          "Wood"
++          "Shaker",
++          "Tambourine",
++          "Cabasa",
++          "Guiro"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "wood",
++        "shakers",
+         "name",
+         {
+          "$tuple": [
+-          "wood",
+-          "wooden",
+-          "clave",
+-          "block"
++          "shaken",
++          "shaker",
++          "tambourine",
++          "maraca",
++          "cabasa"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "metal",
++        "blocks-claves",
+         "tag",
+         {
+          "$tuple": [
+-          "Cowbell",
+-          "Bell",
+-          "Triangle",
+-          "Chime",
+-          "Gong",
+-          "Misc Mallets"
++          "Wood",
++          "Woodblock"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "metal",
++        "blocks-claves",
+         "name",
+         {
+          "$tuple": [
+-          "metallic",
+-          "cowbell",
+-          "bell"
++          "wood",
++          "wooden",
++          "clave",
++          "block"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "shakers",
++        "bells-cowbells",
+         "tag",
+         {
+          "$tuple": [
+-          "Shaker",
+-          "Tambourine"
++          "Cowbell",
++          "Bell",
++          "Triangle",
++          "Chime",
++          "Gong",
++          "Misc Mallets"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "shakers",
++        "bells-cowbells",
+         "name",
+         {
+          "$tuple": [
+-          "shaken",
+-          "shaker"
++          "cowbell",
++          "bell",
++          "agogo",
++          "triangle"
+          ]
+         }
+        ]
+       },
+       {
+        "$tuple": [
+-        "snaps-claps",
+-        "tag",
++        "electronic",
++        "any",
+         {
+-         "$tuple": [
+-          "Snap",
+-          "Clap"
+-         ]
++         "$tuple": []
+         }
+        ]
+       }
+diff --git a/tests/test_fallback_routing.py b/tests/test_fallback_routing.py
+index e07ed05..c268cd4 100644
+--- a/tests/test_fallback_routing.py
++++ b/tests/test_fallback_routing.py
+@@ -148,9 +148,11 @@ def test_near_duplicate_loops_at_different_tempos_both_stay():
+ # --- 12i: shakers in a percussion folder, clap / hat ties ------------------------------------
+ @pytest.mark.parametrize("name, rel, fallback, want", [
+     ("Grain Shaker.wav", "Perc/Grain Shaker.wav", True, "PERC"),
+-    ("Grain Shaker.wav", "Perc/Grain Shaker.wav", False, "HATS"),       # with Sononym, as before
+-    ("Grain Shaker.wav", "Hats/Grain Shaker.wav", True, "HATS"),
+-    ("Shaker Hat 01.wav", "Percussion/Shaker Hat 01.wav", True, "HATS"),
++    # a shaker is PERC's by its name, whatever its folder; one also named a hat stays a hat
++    ("Grain Shaker.wav", "Perc/Grain Shaker.wav", False, "PERC"),
++    ("Grain Shaker.wav", "Hats/Grain Shaker.wav", True, "PERC"),
++    # "shaker" says PERC and "hat" says HATS: the name decides nothing, the sound does
++    ("Shaker Hat 01.wav", "Percussion/Shaker Hat 01.wav", True, None),
+     ("Tambourine 2.wav", "Percussion/Tambourine 2.wav", True, "PERC"),
+ ])
+ def test_a_shaker_in_a_percussion_folder(name, rel, fallback, want):
+diff --git a/tests/test_folder_groups.py b/tests/test_folder_groups.py
+index 4cb18c6..bf20eaf 100644
+--- a/tests/test_folder_groups.py
++++ b/tests/test_folder_groups.py
+@@ -127,10 +127,43 @@ def test_closed_hats_split_by_their_folder_words():
+                   "closed-gated": (5, "closed", []), "open-analog-clicky": (5, "open", []),
+                   "open-tonal": (5, "open", [])})
+     got = G.category_groups("HATS", fams, rules=FOLDER_GROUPS["HATS"], min_folders=2)
+-    assert got["closed-analog-clicky"] == got["closed-analog-tonal"] == "closed-machine"
+-    assert got["closed-dark-tonal"] == got["closed-tonal-2"] == "closed-tonal"
+-    assert got["closed-clicky-3"] == got["closed-clicky-4"] == "closed-clicky"
+-    assert got["closed-gated"] == "closed" and got["open-analog-clicky"] == got["open-tonal"] == "open"
++    assert got["closed-analog-clicky"] == got["closed-analog-tonal"] == "closed/machine"
++    assert got["closed-dark-tonal"] == got["closed-tonal-2"] == "closed/tonal"
++    assert got["closed-clicky-3"] == got["closed-clicky-4"] == "closed/clicky"
++    assert got["closed-gated"] == "closed/tight" and got["open-analog-clicky"] == got["open-tonal"] == "open"
++
++
++def test_drums_group_by_what_they_are_then_how_they_sound():
++    from fourier.packs.curate_config import FOLDER_GROUPS
++    fams = _fams({"808-tonal-long-tail": (5, None, []), "808-short": (5, None, []),
++                  "vintage-drum-machine": (5, None, []), "909-punchy": (5, None, []),
++                  "clicky-gated-punchy": (5, None, []), "punchy-tight": (5, None, []),
++                  "tonal-dark": (5, None, []), "low-tuned-soft": (5, None, []), "dark": (5, None, [])})
++    got = G.category_groups("KICKS", fams, rules=FOLDER_GROUPS["KICKS"], min_folders=2)
++    assert got["808-tonal-long-tail"] == got["808-short"] == "808"
++    assert got["vintage-drum-machine"] == got["909-punchy"] == "machine"
++    assert got["clicky-gated-punchy"] == "electronic/clicky"
++    # no group word: the kick goes with the punchy ones, not into "other"
++    assert got["punchy-tight"] == got["dark"] == "electronic/punchy"
++    assert got["tonal-dark"] == got["low-tuned-soft"] == "electronic/tonal"
++
++
++def test_percussion_groups_are_instruments_and_shakers_are_percussion():
++    from fourier.packs.curate_config import ABLETON_TAG_CATEGORY, FOLDER_GROUPS
++    assert ABLETON_TAG_CATEGORY["Shaker"] == ABLETON_TAG_CATEGORY["Tambourine"] == "PERC"
++    assert ABLETON_TAG_CATEGORY["Snap"] == "CLAPS"
++    fams = {"conga-tonal": [dict(ableton=["Conga"])] * 4, "bongo-dry": [dict(ableton=["Bongo"])] * 4,
++            "shaken-soft": [dict(ableton=["Shaker"])] * 4, "tambourine-bright": [dict(ableton=["Tambourine"])] * 4,
++            "clave-clicky": [dict(ableton=[])] * 4, "woodblock-dry": [dict(ableton=["Woodblock"])] * 4,
++            "cowbell-808": [dict(ableton=["Cowbell"])] * 4, "metallic-ring": [dict(ableton=["Triangle"])] * 4,
++            "metallic-zap": [dict(ableton=[])] * 4, "glitch-perc": [dict(ableton=[])] * 4}
++    got = G.category_groups("PERC", fams, rules=FOLDER_GROUPS["PERC"], min_folders=2)
++    assert got["conga-tonal"] == got["bongo-dry"] == "hand-drums"
++    assert got["shaken-soft"] == got["tambourine-bright"] == "shakers"
++    assert got["clave-clicky"] == got["woodblock-dry"] == "blocks-claves"
++    assert got["cowbell-808"] == got["metallic-ring"] == "bells-cowbells"
++    # a metallic sound that isn't a bell is electronic percussion, not "metal"
++    assert got["metallic-zap"] == got["glitch-perc"] == "electronic"
+ 
+ 
+ def test_a_nested_group_is_one_folder_per_part_while_the_levels_allow():
+diff --git a/tests/test_taxonomy.py b/tests/test_taxonomy.py
+index 90259bb..51108e7 100644
+--- a/tests/test_taxonomy.py
++++ b/tests/test_taxonomy.py
+@@ -887,7 +887,7 @@ def test_scratches_folded_into_fx():
+     assert C._fx_band(["XFX Sweeps & Lasers"], [], "Laser Beam 01.wav") == "sweep"
+     assert C._band_of("fx", "Chirp Scratch 03.wav") == "scratch"
+     assert C._band_phrase_ok("fx", "scratch", "baby scratch") and not C._band_phrase_ok("fx", "sweep", "baby scratch")
+-    assert not C._scratch_named("Shaker Scratch Soft.wav") and C._drum_named("Shaker Scratch Soft.wav") == "HATS"
++    assert not C._scratch_named("Shaker Scratch Soft.wav") and C._drum_named("Shaker Scratch Soft.wav") == "PERC"
+     assert not C._scratch_named("scratchy_lead_Dm_120.wav")
+ 
+ 
+-- 
+2.43.0
+

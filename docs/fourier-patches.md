@@ -7,7 +7,7 @@ for curation rules, so our changes to it are kept as `git format-patch` files in
 
 - **Base:** `bvk7787/fourier-samples` at `131ee62` (v0.1.2, still upstream `main` on 2026-11-07).
 - **Branch name used locally:** `local/adaptive-folders`.
-- **All 8 apply cleanly** to the base with `git am` (checked 2026-11-07).
+- **All 11 apply cleanly** to the base with `git am`, and Fourier's own suite passes (checked 2026-11-22).
 
 ## Install the patched build
 
@@ -51,6 +51,8 @@ Then update the base commit here and in `src/sample_shepherd/organize/fourier.py
 | 0007 | Keeps a phrase's drum word out of a tonal folder's name (fixes a verify failure) | Changes output | Generic |
 | 0008 | Finer groups: foley by its files' names, closed hats by folder words | Changes output | Generic |
 | 0009 | Section folders above the categories at four levels (`CATEGORY_SECTIONS`: DRUMS, LOOPS, TONAL, VOX, FX) | **Yes:** the `*_4` profiles | Generic; builds on 0004 |
+| 0010 | Nested groups: a group named `electronic/punchy` is two folders when the profile has the levels (else `electronic-punchy`); an `any` rule ends a category's rules; a family folder under a group drops the words the group already says (`808-tonal-long-tail` under `808` is `tonal-long-tail`) | **Yes:** the `*_5` profiles, and 0011 | Generic; builds on 0004 |
+| 0011 | Drum groups: kind first (808, machine, breaks-lofi, rim), then character under `electronic/`; closed hats under `closed/`; PERC as instruments (hand-drums, shakers, blocks-claves, bells-cowbells, electronic). Shakers and tambourines are PERC only, snaps CLAPS only | Changes output | Our taste, not upstream |
 
 ## Offering them upstream
 

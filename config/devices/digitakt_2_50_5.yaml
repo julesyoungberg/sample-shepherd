@@ -1,0 +1,9 @@
+# Digitakt II, 50 files a folder, five folder levels: SECTION/CATEGORY/group/subgroup/family.
+# The fifth level appears only under a nested group (Fourier patches 0010-0011:
+# "DRUMS/01_KICKS/electronic/punchy/..."); a category or group that isn't crowded stays shallower.
+# UNVERIFIED on the device: four levels are in use, five haven't been browsed yet.
+id: digitakt_2_50_5
+extends: digitakt_2_50
+name: Elektron Digitakt 2 (50 files a folder, five levels)
+paths:
+  folder_depth: {value: 5, status: convention}        # user's choice (Fourier patch 0010)
