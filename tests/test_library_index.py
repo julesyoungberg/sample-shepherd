@@ -98,9 +98,10 @@ def test_index_refuses_a_db_inside_the_master_or_another_masters_db(tmp_path):
         con.execute("CREATE TABLE t (x)")
     for bad in (notes, other_db):
         before = bad.read_bytes()
-        with pytest.raises(ValueError, match="isn't a library index"):
-            library.index(master, bad)
-        assert bad.read_bytes() == before
+        for changes in (None, library.Changes()):   # with Changes, index() skips scan()
+            with pytest.raises(ValueError, match="isn't a library index"):
+                library.index(master, bad, changes=changes)
+            assert bad.read_bytes() == before
 
 
 def test_cli_library_index_dry_run_writes_nothing(tmp_path, monkeypatch, capsys):
