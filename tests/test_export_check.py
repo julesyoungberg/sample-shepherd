@@ -11,6 +11,10 @@ def test_bundled_profiles_resolve():
     assert (p.folder_depth, p.files_per_folder, p.sample_rate, p.bit_depth) == (3, 50, 48000, 16)
     g = profiles.resolve("generic_folder_3", dirs)
     assert (g.folder_depth, g.files_per_folder, g.sample_rate, g.bit_depth) == (3, None, 44100, 24)
+    # five levels: SECTION/CATEGORY/group/subgroup/family (Fourier patches 0010 and 0011)
+    p5 = profiles.resolve("digitakt_2_50_5", dirs)
+    assert (p5.folder_depth, p5.files_per_folder, p5.sample_rate) == (5, 50, 48000)
+    assert profiles.resolve("generic_folder_5", dirs).folder_depth == 5
 
 
 def test_wav_info(tmp_path):

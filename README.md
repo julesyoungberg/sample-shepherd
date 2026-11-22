@@ -163,6 +163,9 @@ Profiles are YAML in Fourier's format. Bundled ones (from [config/devices](confi
 - `digitakt_2_50_4`, `generic_folder_4`: four levels, with section folders on top:
   `SECTION/CATEGORY/group/family`, sections `DRUMS`, `LOOPS`, `TONAL`, `VOX`, `FX`
   (patch 0009). Fewer, bigger folders at a device's root, next to your own folders.
+- `digitakt_2_50_5`, `generic_folder_5`: up to five levels. A crowded group splits once more
+  (`DRUMS/01_KICKS/electronic/punchy/...`, patches 0010 and 0011); the rest stays at four.
+  Not yet tried on the Digitakt itself.
 
 Fourier's own profiles (`digitakt_2`, `generic_folder`, `m8`, ...) work too. To write your
 own, see [docs/adding-a-profile.md](docs/adding-a-profile.md).
@@ -170,7 +173,7 @@ own, see [docs/adding-a-profile.md](docs/adding-a-profile.md).
 ## Fourier and our patches
 
 Fourier is an external command here, found through `[fourier] command` or `PATH`, with the
-environment from `[fourier] env`. Our 9 patches to it live in
+environment from `[fourier] env`. Our 11 patches to it live in
 [config/patches](config/patches); [docs/fourier-patches.md](docs/fourier-patches.md) says
 what each does, whether our config needs it, and how it could go upstream.
 
