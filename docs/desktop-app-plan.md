@@ -5,7 +5,8 @@ and export, see what's on the device, review a sync plan visually, and watch a s
 Written 2026-11-07. Built so far: the CLI pieces of milestone 1 and the frontend scaffold
 with its style sheet page (`app/`, see [app/README.md](../app/README.md)), and the first
 cut of the Library screen (folder tree, terrain, table, filters) fed by a recorded `library ls`
-run, and the Tauri shell (`app/src-tauri/`) that opens it in a native window. The sidecar
+run, the Export check and Plan screens fed by recorded `export check` and `plan-edit` runs,
+and the Tauri shell (`app/src-tauri/`) that opens it in a native window. The sidecar
 is next.
 
 ## Summary
@@ -244,11 +245,13 @@ Ordered by how much each helps; the first four are in scope for v1.
    sized by bytes and colored by category, grouped by folder. Samples a project uses get a
    solid outline; ones the plan would delete get the hatch. Free space is empty paper. You
    see at once what fills the drive and what's safe to clear.
-3. **Plan flow** (SVG, `d3-sankey`). Two flows, stacked: the export flowing into the
-   device (upload, skip because it's already there), and what's on the device flowing out
-   to its fate (keep because a project uses it, keep because it's protected, keep, delete).
-   Band widths are bytes, so the cost of a sync in transfer time is visible before you start.
-   Clicking a band filters the row list.
+3. **Plan flow** (positioned buttons, laid out in `plan.ts`; a Sankey with `d3-sankey`
+   only if the bands need to show what flows where). Two flows, stacked: the export flowing
+   into the device (upload, skip because it's already there), and what's on the device
+   flowing out to its fate (keep because a project uses it, keep because it's protected,
+   delete). Excluded rows get their own band. Band widths are bytes on one scale for both
+   flows, so the cost of a sync in transfer time is visible before you start. Clicking a
+   band filters the row list.
 4. **Library terrain** (an icicle of positioned buttons, laid out in `library.ts`; no d3
    needed yet). Section → category → folder →
    files, width by count or bytes. Doubles as navigation for the Library screen, and makes

@@ -230,3 +230,20 @@ triggers share this file). Newest last.
   PyInstaller sidecar build, which is also a new dependency.
 - Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
 - Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-23 (Monday, weekday run)
+
+- Minutes used: about 25 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Add the Sync plan screen: totals, the plan flow and every row" (milestone 4
+  of docs/desktop-app-plan.md). `/plan` in `app/` reads a recorded `plan-edit --json` run.
+  The flow is positioned buttons laid out in `plan.ts` (no `d3-sankey`, so no new
+  dependency); bands are bytes on one scale, and clicking one filters the rows.
+  Screenshots in project files, app-style/plan-*.png.
+- Skipped: excluding rows from the screen (needs the sidecar); the +Drive map and Device
+  screen (no recorded listing fixture yet).
+- State found: tests green on main, no open PRs or issues. Yesterday's question on
+  `@tauri-apps/api` and PyInstaller is still unanswered.
+- Next: the Device screen's +Drive map from a recorded `device listing` CSV, or the
+  sidecar wiring once Jules OKs the two dependencies.
+- Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
+- Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.

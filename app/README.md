@@ -16,6 +16,10 @@ What exists:
   text, category, channels and rating. It reads a recorded `library ls --json` run until the sidecar exists.
 - `/export`, the Export check: every issue `export check --json` found in a render, sorted
   by path, with the file and folder counts. It reads a recorded run until the sidecar exists.
+- `/plan`, the Sync plan: the plan's totals, two flows (the export into the device, and
+  what's on the device to its fate) with each action as wide as its bytes, and every row
+  and its reason. Clicking a band filters the rows. It reads a recorded run until the
+  sidecar exists, so rows can't be excluded from here yet.
 
 - `src-tauri/`, the Tauri 2 shell: a native window that loads the built frontend. It has
   no Rust commands yet, so the screens still read recorded fixtures.
@@ -69,9 +73,17 @@ On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
   run on a render of generated WAVs with one of each kind of issue. Re-record it if the
   `issue` row changes.
 - `src/routes/export/+page.svelte`: the Export check screen.
+- `src/lib/plan.ts`: parses `plan --json` rows and totals, and lays out the flows.
+- `src/lib/fixtures/plan.jsonl`: a recorded `plan-edit --exclude 8` run on a plan made with
+  `--prune` and `--replace` from a hand-written listing and usage list and a render of
+  empty files, so every action but `excluded-upload` shows up. Re-record it if the `plan`
+  row changes.
+- `src/routes/plan/+page.svelte`: the Sync plan screen.
 - `tests/library.spec.ts`: the Library screen lists the fixture, its filters work, and
   the terrain sizes folders by sample count.
 - `tests/export.spec.ts`: the Export check lists every issue in the fixture, sorted.
+- `tests/plan.spec.ts`: the Sync plan lists every row with its totals, and the flow sizes
+  actions by bytes and filters on click.
 - `tests/style.spec.ts`: the style sheet renders, and every category color keeps 3:1
   contrast on both backgrounds (the WCAG minimum for graphics).
 - `src-tauri/tauri.conf.json`: the window, the content security policy (only the app's
