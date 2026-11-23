@@ -18,7 +18,7 @@ What exists:
   by path, with the file and folder counts. It reads a recorded run until the sidecar exists.
 - `/plan`, the Sync plan: the plan's totals, two flows (the export into the device, and
   what's on the device to its fate) with each action as wide as its bytes, and every row
-  with why it's kept. Clicking a band filters the rows. It reads a recorded run until the
+  and its reason. Clicking a band filters the rows. It reads a recorded run until the
   sidecar exists, so rows can't be excluded from here yet.
 
 - `src-tauri/`, the Tauri 2 shell: a native window that loads the built frontend. It has

@@ -23,7 +23,7 @@
     {#if summary}
       <p class="label ml-auto">
         upload {summary.upload} files ({formatSize(summary.upload_bytes)}) into {summary.folders} folders,
-        delete {summary.delete} ({formatSize(summary.delete_bytes)}), about {formatDuration(summary.est_seconds)}
+        delete {summary.delete} ({formatSize(summary.delete_bytes)}){#if summary.excluded}, {summary.excluded} excluded{/if}, about {formatDuration(summary.est_seconds)}
       </p>
     {/if}
   </header>

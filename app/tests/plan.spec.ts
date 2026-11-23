@@ -15,7 +15,7 @@ test('the plan lists every row with its totals', async ({ page }) => {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/plan');
   await expect(rows(page)).toHaveCount(15);
-  await expect(page.getByText('upload 5 files (405 KB) into 5 folders, delete 2 (186 KB), about 33 s')).toBeVisible();
+  await expect(page.getByText('upload 5 files (405 KB) into 5 folders, delete 2 (186 KB), 1 excluded, about 33 s')).toBeVisible();
   const excluded = rows(page).filter({ hasText: 'HH_CL_OLD' });
   await expect(excluded).toContainText('excluded-delete');
   const used = rows(page).filter({ hasText: 'HH_OP_VINTAGE' });

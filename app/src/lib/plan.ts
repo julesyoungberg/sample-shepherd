@@ -55,7 +55,7 @@ export function flows(rows: PlanRow[]): { name: string; bands: Band[] }[] {
   });
 }
 
-// Matches the CLI's fmt_duration.
+// Mirrors the CLI's fmt_duration (which rounds halves to even, so it can be a second off).
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
   if (s < 90) return `${s} s`;
