@@ -247,3 +247,22 @@ triggers share this file). Newest last.
   sidecar wiring once Jules OKs the two dependencies.
 - Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
 - Budget: 25, 25 and 25 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-24 (Tuesday, weekday run)
+
+- Minutes used: about 35 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Add device listing --json rows and the Device screen's +Drive map"
+  (milestone 4 of docs/desktop-app-plan.md). `device listing --json` sends each file as a
+  `listing` row. `/device` in `app/` draws the map from a recorded run on the fake device,
+  marked from the plan fixture (used outlined, deletes hatched). Screenshot in project
+  files, app-style/device-dark.png.
+- Skipped: free space on the map (needs capacity from `device info`), canvas drawing,
+  project slots and the Backup button (need the sidecar).
+- State found: tests green on main, no open PRs or issues. The `@tauri-apps/api` and
+  PyInstaller question is still unanswered.
+- Note: a stray remote branch `claude/device-drive-map` (same commit as this PR) couldn't
+  be deleted from the cloud session; safe to delete.
+- Next: `device info --json` with capacity so the map can show free space, or the sidecar
+  wiring once Jules OKs the two dependencies.
+- Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
+- Budget: 25, 25 and 35 minutes of 45; not all under half or at the cap, so no change.
