@@ -285,7 +285,10 @@ def cmd_device_listing(cfg, a) -> int:
             return 0
         rows = listing.collect(dev, a.root, progress=lambda n: _err(f"{n} folders read"))
     listing.write(rows, Path(a.out))
+    for r in rows:
+        a.events.emit("row", kind="listing", path=r.path, size=r.size, hash=r.hash or "")
     total = sum(r.size or 0 for r in rows)
+    a.events.summary.update(files=len(rows), bytes=total, out=a.out)
     _out(f"{len(rows)} files, {total / 1024**3:.2f} GiB -> {a.out}")
     return 0
 

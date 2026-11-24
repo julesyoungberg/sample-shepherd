@@ -83,6 +83,18 @@
             },
             "required": ["path", "folder", "category", "duration", "sample_rate", "channels", "size", "sha256", "rating"]
           }
+        },
+        {
+          "if": {"properties": {"kind": {"const": "listing"}}},
+          "then": {
+            "description": "device listing: one file in the device's sample storage, in path order",
+            "properties": {
+              "path": {"type": "string", "description": "from the storage root, no extension, e.g. /01_KICKS/hard/BD 01"},
+              "size": {"type": ["integer", "null"], "description": "bytes, as precise as the device reports them; null if it didn't say"},
+              "hash": {"type": "string", "description": "the device's content hash; empty if it didn't say"}
+            },
+            "required": ["path", "size", "hash"]
+          }
         }
       ]
     },

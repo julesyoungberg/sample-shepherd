@@ -79,11 +79,21 @@ On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
   empty files, so every action but `excluded-upload` shows up. Re-record it if the `plan`
   row changes.
 - `src/routes/plan/+page.svelte`: the Sync plan screen.
+- `src/lib/device.ts`: parses `device listing --json` rows, takes each sample's mark (used
+  by a project, or deleted) from the plan's rows, and lays out the +Drive map.
+- `src/lib/fixtures/device-listing.jsonl`: a recorded `device listing` run on the fake
+  device (`tests/fake/elektroid-cli`) holding the plan fixture's device files plus three
+  outside any synced folder. Sizes are rounded as Elektroid prints them. Re-record it if the
+  `listing` row changes.
+- `src/routes/device/+page.svelte`: the Device screen's +Drive map. Positioned elements for
+  now; the plan's canvas comes when a full drive is too slow.
 - `tests/library.spec.ts`: the Library screen lists the fixture, its filters work, and
   the terrain sizes folders by sample count.
 - `tests/export.spec.ts`: the Export check lists every issue in the fixture, sorted.
 - `tests/plan.spec.ts`: the Sync plan lists every row with its totals, and the flow sizes
   actions by bytes and filters on click.
+- `tests/device.spec.ts`: the +Drive map draws every sample sized by bytes and marks used
+  and deleted ones.
 - `tests/style.spec.ts`: the style sheet renders, and every category color keeps 3:1
   contrast on both backgrounds (the WCAG minimum for graphics).
 - `src-tauri/tauri.conf.json`: the window, the content security policy (only the app's

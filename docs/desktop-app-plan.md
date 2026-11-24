@@ -6,6 +6,8 @@ Written 2026-11-07. Built so far: the CLI pieces of milestone 1 and the frontend
 with its style sheet page (`app/`, see [app/README.md](../app/README.md)), and the first
 cut of the Library screen (folder tree, terrain, table, filters) fed by a recorded `library ls`
 run, the Export check and Plan screens fed by recorded `export check` and `plan-edit` runs,
+the Device screen's +Drive map fed by a recorded `device listing` run and marked from the plan
+(positioned elements, not canvas yet, and no free space until `device info` reports capacity),
 and the Tauri shell (`app/src-tauri/`) that opens it in a native window. The sidecar
 is next.
 
