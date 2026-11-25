@@ -1,0 +1,14 @@
+{"v": 1, "type": "start", "cmd": "device listing", "dry_run": false}
+{"v": 1, "type": "row", "kind": "listing", "path": "/01_KICKS/Acoustic/KICK_OLD_BOOMY", "size": 139981, "hash": "f0c5c53b"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/01_KICKS/Acoustic/KICK_ROOM_01", "size": 96000, "hash": "c04b0b09"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/01_KICKS/Electronic/KICK_909_A", "size": 88003, "hash": "f573d57b"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/01_KICKS/Electronic/KICK_909_OLD", "size": 89999, "hash": "dd5d6cad"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/02_SNARES/Rim/SD_RIM_OLDTAKE", "size": 50002, "hash": "b5ee1fda"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/04_HATS/Closed/HH_CL_01", "size": 24003, "hash": "01b23353"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/04_HATS/Closed/HH_CL_OLD", "size": 30003, "hash": "7565b0fd"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/04_HATS/Open/HH_OP_VINTAGE", "size": 210022, "hash": "f1829408"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/acapellas/VOX HOOK", "size": 120013, "hash": "d2a95d08"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/factory/DT2/KICK_FACTORY", "size": 79995, "hash": "cdb61c66"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/recorded/JAM 2026-11-01", "size": 259994, "hash": "60541249"}
+{"v": 1, "type": "row", "kind": "listing", "path": "/recorded/JAM 2026-11-03", "size": 180019, "hash": "a72aa7cb"}
+{"v": 1, "type": "result", "ok": true, "exit": 0, "summary": {"files": 12, "bytes": 1368034, "out": "listing.csv"}}

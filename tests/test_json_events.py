@@ -69,6 +69,20 @@ def test_tools_names_what_is_missing(run_json, tmp_path):
     assert evs[-1]["summary"] == {"missing": ["fourier"]}
 
 
+def test_device_listing_streams_each_file(run_json, fake_device, tmp_path):
+    drive = fake_device / "drive"
+    (drive / "01_KICKS" / "hard").mkdir(parents=True)
+    (drive / "01_KICKS" / "hard" / "BD 01").write_bytes(b"k" * 1000)
+    (drive / "factory").mkdir()
+    (drive / "factory" / "BD").write_bytes(b"f" * 300)
+    code, evs, err = run_json("device", "listing", "--out", "listing.csv")
+    assert code == 0, err
+    rows = [e for e in evs if e["type"] == "row"]
+    assert [(r["path"], r["size"]) for r in rows] == [("/01_KICKS/hard/BD 01", 1000), ("/factory/BD", 300)]
+    assert all(r["kind"] == "listing" and r["hash"] for r in rows)
+    assert evs[-1]["summary"] == {"files": 2, "bytes": 1300, "out": "listing.csv"}
+
+
 def test_plan_streams_each_row_and_totals(run_json, tmp_path):
     make_wav(tmp_path / "render" / "01_KICKS" / "BD 01.wav")
     make_wav(tmp_path / "render" / "01_KICKS" / "BD 02.wav")

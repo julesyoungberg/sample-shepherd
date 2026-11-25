@@ -114,7 +114,8 @@ All read-only.
 - `device info`: the device's filesystems. Without a `sample` filesystem, sample sync
   isn't supported (see [supported devices](../../README.md#supported-devices)).
 - `device listing --out CSV`: every file in the sample storage with its size and content
-  hash. `plan` reads it. `--root` lists one folder only.
+  hash. `plan` reads it. `--root` lists one folder only. With `--json`, each file is a `row`
+  event (kind `listing`); see [JSON output](#json-output).
 
 ## projects
 
@@ -238,13 +239,16 @@ This is how the desktop app runs the CLI. The shapes are in
   empty and the exit code is 2. The usage message is on stderr.
 - If the reader closes its end of the pipe, the CLI stops writing events and finishes
   quietly.
-- `row` events carry a command's data. Three commands send them so far:
+- `row` events carry a command's data. These commands send them:
   - `tools`: one `"kind": "tool"` row per tool (above).
   - `plan`: one `"kind": "plan"` row per plan row, with the plan CSV's columns and in its
     order. The `result` summary has counts per action, `upload_bytes`, `delete_bytes`,
     `folders`, `est_seconds`, `excluded`, and `out` (the plan CSV, or `null` on a dry run).
     Each row has an `id` for `plan-edit`.
   - `plan-edit`: the same rows and summary, after the edit.
+  - `device listing`: one `"kind": "listing"` row per file, with the CSV's columns, in path
+    order. The `result` summary has `files`, `bytes` and `out` (the CSV).
+  - `export check` and `library ls`: see their sections above.
 
   `library index` sends no rows, but a `progress` event after each file it reads
   ([below](#progress-and-stopping-a-sync)); its `result` summary has `added`, `updated`,
