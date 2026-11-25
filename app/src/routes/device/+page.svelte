@@ -1,14 +1,16 @@
 <script lang="ts">
   import { formatSize, paletteFor } from '$lib/library';
-  import { driveMap, folderCategory, marksFrom, parseListing } from '$lib/device';
+  import { driveMap, folderCategory, marksFrom, parseDrive, parseListing } from '$lib/device';
   import { parsePlan } from '$lib/plan';
-  // shortcut: recorded `device listing --json` and `plan-edit --json` runs stand in for the CLI; run them from the sidecar once the Tauri shell exists.
+  // shortcut: recorded `device listing --json`, `device info --json` and `plan-edit --json` runs stand in for the CLI; run them from the sidecar once the Tauri shell exists.
   import listingFixture from '$lib/fixtures/device-listing.jsonl?raw';
+  import infoFixture from '$lib/fixtures/device-info.jsonl?raw';
   import planFixture from '$lib/fixtures/plan.jsonl?raw';
 
   const { rows, summary } = parseListing(listingFixture);
   // shortcut: one positioned element per sample; move to canvas (as the plan says) once a full drive's 10,000+ cells feel slow.
   const bars = driveMap(rows, marksFrom(parsePlan(planFixture).rows));
+  const drive = parseDrive(infoFixture);
   const color = (name: string) => {
     const p = paletteFor(folderCategory(name));
     return p ? `var(--color-cat-${p})` : 'var(--color-ink-soft)';
@@ -21,7 +23,18 @@
   <header class="flex flex-wrap items-baseline gap-4 border-b border-rule pb-3">
     <h1 class="text-lg font-semibold">+Drive</h1>
     {#if summary}<p class="label ml-auto">{summary.files} files, {formatSize(summary.bytes)}</p>{/if}
+    {#if drive}<p class="label">{formatSize(drive.used)} used of {formatSize(drive.size)}, {formatSize(drive.free)} free</p>{/if}
   </header>
+
+  {#if drive && rows.length}
+    <!-- The whole drive: each folder's share, then free space as empty paper. -->
+    <div class="mt-3 flex h-3 border border-rule" role="img" aria-label="+Drive space: {formatSize(drive.free)} free">
+      {#each bars as b (b.name)}
+        <div class="border-r border-paper" style:width="{(b.bytes / drive.size) * 100}%" style:background={color(b.name)}
+          title="{b.name}: {formatSize(b.bytes)}" data-folder={b.name}></div>
+      {/each}
+    </div>
+  {/if}
 
   {#if rows.length === 0}
     <p class="mt-4 text-sm">{summary ? 'The +Drive is empty.' : "The listing didn't finish, so there's nothing to show."}</p>

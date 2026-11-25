@@ -8,6 +8,7 @@ src/connectors/elektron.c, checked at commit 053d3fd, 2026-11-03):
   ld:               "%d: id: %s; name: %s"
   sample:ls:        "%c %10s %08x %s"                 type, size, hash, name
   project:ls:       "%c %04x %d %d %10s %10s %-32s"   type, ops, valid, metadata, size, slot, name
+  df:               "%-20.20s%16s%16s%16s%10.2f%%"    name, size, used, free, use%, under a header row
 
 Older Elektroid releases (and its README) print data/project listings as
 "type index perms valid metadata size name"; parse_project_ls reads both.
@@ -20,7 +21,7 @@ import time
 from pathlib import Path
 from typing import Callable, Sequence
 
-from sample_shepherd.sync.device import Device, DeviceError, DeviceInfo, Entry, ProjectSlot
+from sample_shepherd.sync.device import Device, DeviceError, DeviceInfo, Entry, ProjectSlot, Storage
 from sample_shepherd.util import parse_human_size
 
 LD_LINE = re.compile(r"^(\d+): id: (.*?); name: (.*)$")
@@ -28,6 +29,7 @@ SAMPLE_LINE = re.compile(r"^([DF])\s+(\S+)\s+([0-9a-fA-F]{8})\s(.*)$")
 DATA_LINE_OLD = re.compile(r"^([DF])\s+(-?\d+) ([0-9a-fA-F]{4}) ([01]) ([01])\s+(\S+) (.*)$")
 DATA_LINE = re.compile(r"^([DF]) ([0-9a-fA-F]{4}) (\d) (\d) (.{10}) (.{10}) (.*)$")
 FS_LINE = re.compile(r"^Filesystems:\s*(.*)$")
+DF_LINE = re.compile(r"^(.{1,20}?)\s+(\S+)\s+(\S+)\s+(\S+)\s+[\d.]+%$")
 INFO_SUFFIX = re.compile(r"\s*\[ .* \]\s*$")
 
 Runner = Callable[[Sequence[str]], "subprocess.CompletedProcess[bytes]"]
@@ -63,6 +65,17 @@ def parse_info(text: str) -> dict[str, object]:
         elif ":" in line:
             k, _, v = line.partition(":")
             out[k.strip().lower().replace(" ", "_")] = v.strip()
+    return out
+
+
+def parse_df(text: str) -> list[Storage]:
+    """`df N:/` -> one Storage per row (the Digitakt has +Drive and RAM)."""
+    out = []
+    for line in text.splitlines():
+        m = DF_LINE.match(line.rstrip())
+        if m:
+            size, used, free = (parse_human_size(g) for g in m.group(2, 3, 4))
+            out.append(Storage(m.group(1).strip(), size, used, free))
     return out
 
 
@@ -126,6 +139,7 @@ class ElektronDevice(Device):
 
     def describe(self, op: str) -> str:
         args = {"list_devices": ["ld"], "info": ["info", self.device],
+                "storage": ["df", self._p("/")],
                 "list_projects": [f"elektron:{self.project_fs}:ls", self._p("/")]}.get(op, [op])
         return " ".join([self.cli, *args])
 
@@ -134,6 +148,13 @@ class ElektronDevice(Device):
 
     def info(self) -> dict[str, object]:
         return parse_info(self._run("info", self.device, tries=1))
+
+    def storage(self) -> list[Storage]:
+        try:
+            return parse_df(self._run("df", self._p("/"), tries=1))
+        except DeviceError:
+            # Elektroid has no storage stats for some devices (no sample storage, e.g. Digitone)
+            return []
 
     def ls(self, path: str) -> list[Entry]:
         return parse_sample_ls(self._run(f"elektron:{self.sample_fs}:ls", self._p(path)))

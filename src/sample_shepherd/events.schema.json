@@ -95,6 +95,19 @@
             },
             "required": ["path", "size", "hash"]
           }
+        },
+        {
+          "if": {"properties": {"kind": {"const": "storage"}}},
+          "then": {
+            "description": "device info: one storage's capacity, when the device reports it",
+            "properties": {
+              "name": {"type": "string", "description": "e.g. +Drive"},
+              "size": {"type": "integer", "description": "bytes; elektroid-cli rounds each of these to 4 significant digits"},
+              "used": {"type": "integer"},
+              "free": {"type": "integer"}
+            },
+            "required": ["name", "size", "used", "free"]
+          }
         }
       ]
     },

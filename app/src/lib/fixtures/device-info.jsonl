@@ -1,0 +1,3 @@
+{"v": 1, "type": "start", "cmd": "device info", "dry_run": false}
+{"v": 1, "type": "row", "kind": "storage", "name": "+Drive", "size": 4194304, "used": 1368392, "free": 2825912}
+{"v": 1, "type": "result", "ok": true, "exit": 0, "summary": {}}

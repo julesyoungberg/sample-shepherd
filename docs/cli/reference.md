@@ -143,7 +143,7 @@ List connected devices.
 
 ### `device info`
 
-Show the device's filesystems (what it supports).
+Show the device's filesystems and free space.
 
 | Argument | Description |
 |---|---|

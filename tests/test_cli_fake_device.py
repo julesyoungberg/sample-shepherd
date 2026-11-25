@@ -42,6 +42,7 @@ def test_device_ls_and_info(run, fake_device):
     assert code == 0 and "1: Elektron Digitakt II (42)" in out
     code, out = run("device", "info")
     assert "filesystems: data, preset-takt-ii, project, sample, raw" in out
+    assert "+Drive: 0 B used of 1.07 GB, 1.07 GB free" in out
 
 
 def test_full_flow(run, world, fake_device, tmp_path):
@@ -212,7 +213,7 @@ def test_used_refuses_an_incomplete_backup(run, world, fake_device, tmp_path, mo
 
 
 def test_read_only_device_commands_dry_run_without_contacting_it(run, world, fake_device):
-    for args, shown in [(("device", "ls"), " ld"), (("device", "info"), " info 1"),
+    for args, shown in [(("device", "ls"), " ld"), (("device", "info"), " df 1:/"),
                         (("projects", "ls"), " elektron:project:ls 1:/")]:
         code, out = run(*args, "--dry-run")
         assert code == 0 and "would run:" in out and shown in out, out

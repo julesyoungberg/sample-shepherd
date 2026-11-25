@@ -45,6 +45,9 @@ export type SampleRow = Event<'row'> & {
 // device listing: one file in the device's sample storage.
 export type ListingRow = Event<'row'> & { kind: 'listing'; path: string; size: number | null; hash: string };
 
+// device info: one storage's capacity, in bytes (each rounded by the device).
+export type StorageRow = Event<'row'> & { kind: 'storage'; name: string; size: number; used: number; free: number };
+
 export type ProgressEvent = Event<'progress'> & { done: number; total: number; bytes: number; eta_s: number | null };
 export type WarnEvent = Event<'warn'> & { msg: string };
 // `summary` differs per command; each screen types the one it reads.
@@ -56,7 +59,7 @@ export type ErrorEvent = Event<'error'> & {
 };
 
 export type CliEvent =
-  | StartEvent | ToolRow | PlanRow | IssueRow | SampleRow | ListingRow | ProgressEvent | WarnEvent | ResultEvent | ErrorEvent;
+  | StartEvent | ToolRow | PlanRow | IssueRow | SampleRow | ListingRow | StorageRow | ProgressEvent | WarnEvent | ResultEvent | ErrorEvent;
 
 // shortcut: trusts each line to match the schema, as the CLI is our own program; validate here if the app ever reads output from elsewhere.
 export function parseEvents(text: string): CliEvent[] {

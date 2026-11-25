@@ -38,6 +38,14 @@ class ProjectSlot:
     valid: bool = True  # the backend says the slot holds data
 
 
+@dataclass(frozen=True)
+class Storage:
+    name: str          # e.g. "+Drive"
+    size: int          # bytes, each approximate when the backend prints rounded sizes
+    used: int
+    free: int
+
+
 class Device(ABC):
     """One connected device. Methods raise DeviceError on failure."""
 
@@ -57,6 +65,10 @@ class Device(ABC):
     def info(self) -> dict[str, object]:
         """What the device supports: at least {"filesystems": [...]}, when the backend knows."""
         return {"filesystems": []}
+
+    def storage(self) -> list[Storage]:
+        """Size, used and free space of each storage, when the backend knows."""
+        return []
 
     @abstractmethod
     def ls(self, path: str) -> list[Entry]:

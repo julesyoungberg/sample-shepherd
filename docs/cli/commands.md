@@ -19,7 +19,7 @@ and its projects safe. Every flag is in the [command reference](reference.md);
 | `export check RENDER --profile P` | Checks a render against the profile's limits | nothing |
 | `library index LIBRARY` | Indexes a library into SQLite for browsing | the index file |
 | `library ls` | Lists the indexed samples | nothing |
-| `device ls` / `device info` | Connected devices / a device's filesystems | reads the device |
+| `device ls` / `device info` | Connected devices / a device's filesystems and free space | reads the device |
 | `device listing --out CSV` | Lists the sample storage: `path,size,hash` | reads the device; writes `CSV` |
 | `projects ls` | Lists project slots | reads the device |
 | `projects backup` | Downloads projects, one folder per slot, plus `backup-index.csv` | reads the device; writes the backup folder |
@@ -111,8 +111,10 @@ separate program with the environment from `[fourier] env`.
 All read-only.
 
 - `device ls`: connected devices and their numbers. Put the number in `[device] id`.
-- `device info`: the device's filesystems. Without a `sample` filesystem, sample sync
-  isn't supported (see [supported devices](../../README.md#supported-devices)).
+- `device info`: the device's filesystems, and each storage's size, used and free space
+  when the device reports them (Elektroid rounds these to 4 significant digits). Without a
+  `sample` filesystem, sample sync isn't supported (see
+  [supported devices](../../README.md#supported-devices)).
 - `device listing --out CSV`: every file in the sample storage with its size and content
   hash. `plan` reads it. `--root` lists one folder only. With `--json`, each file is a `row`
   event (kind `listing`); see [JSON output](#json-output).
@@ -248,6 +250,8 @@ This is how the desktop app runs the CLI. The shapes are in
   - `plan-edit`: the same rows and summary, after the edit.
   - `device listing`: one `"kind": "listing"` row per file, with the CSV's columns, in path
     order. The `result` summary has `files`, `bytes` and `out` (the CSV).
+  - `device info`: one `"kind": "storage"` row per storage (`+Drive`, `RAM`) with `name`,
+    and `size`, `used` and `free` in bytes. None if the device doesn't report them.
   - `export check` and `library ls`: see their sections above.
 
   `library index` sends no rows, but a `progress` event after each file it reads
