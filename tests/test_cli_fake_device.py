@@ -42,7 +42,7 @@ def test_device_ls_and_info(run, fake_device):
     assert code == 0 and "1: Elektron Digitakt II (42)" in out
     code, out = run("device", "info")
     assert "filesystems: data, preset-takt-ii, project, sample, raw" in out
-    assert "+Drive: 0 B used of 1.07 GB, 1.07 GB free" in out
+    assert "+Drive: 0 B used of 1.0 GiB, 1.0 GiB free" in out
 
 
 def test_full_flow(run, world, fake_device, tmp_path):

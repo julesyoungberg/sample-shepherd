@@ -23,11 +23,12 @@ def parse_human_size(text: str) -> int:
 
 
 def fmt_bytes(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if abs(n) < 1000 or unit == "GB":
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.2f} {unit}"
-        n /= 1000
-    return f"{n:.2f} GB"
+    """Binary units, as elektroid-cli prints them. The app's formatSize matches."""
+    for unit in ("B", "KiB", "MiB"):
+        if abs(n) < 1024:
+            return f"{n:.1f} {unit}" if unit == "MiB" else f"{n:.0f} {unit}"
+        n /= 1024
+    return f"{n:.1f} GiB"
 
 
 def fmt_duration(seconds: float) -> str:
