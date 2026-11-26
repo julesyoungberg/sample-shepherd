@@ -266,3 +266,19 @@ triggers share this file). Newest last.
   wiring once Jules OKs the two dependencies.
 - Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
 - Budget: 25, 25 and 35 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-25 (Wednesday, weekday run)
+
+- Minutes used: about 35 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR "Show the +Drive's free space: device info reads df". `device info` runs
+  `elektroid-cli df` and prints each storage's size, used and free; `--json` sends them as
+  `storage` rows. `/device` in `app/` adds a space strip (each folder's share of the drive,
+  then free space) from a recorded run. Screenshot in project files, app-style/device-dark.png.
+- Skipped: canvas drawing, project slots and the Backup button (need the sidecar); the
+  `info` key/value lines as `--json` events (no screen needs them yet).
+- State found: tests green on main, no open PRs or issues. The `@tauri-apps/api` and
+  PyInstaller question is still unanswered.
+- Next: the sidecar wiring once Jules OKs the two dependencies; until then, the Organize
+  screen from a recorded `organize build` run (needs `--json` rows for what moved).
+- Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
+- Budget: 25, 35 and 35 minutes of 45; not all under half or at the cap, so no change.

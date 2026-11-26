@@ -13,6 +13,7 @@ class Device(ABC):
 
     def list_devices(self) -> list[DeviceInfo]: ...
     def info(self) -> dict: ...                       # optional: {"filesystems": [...]}
+    def storage(self) -> list[Storage]: ...           # optional: size, used, free per storage
     def ls(self, path) -> list[Entry]: ...            # one folder; DeviceError if missing
     def mkdir(self, path) -> None: ...                # with parents
     def upload(self, local, dest_dir) -> None: ...    # must never overwrite

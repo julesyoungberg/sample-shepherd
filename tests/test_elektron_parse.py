@@ -1,4 +1,4 @@
-from sample_shepherd.sync.elektron import parse_info, parse_ld, parse_project_ls, parse_sample_ls
+from sample_shepherd.sync.elektron import parse_df, parse_info, parse_ld, parse_project_ls, parse_sample_ls
 
 
 def test_ld():
@@ -43,6 +43,16 @@ def test_info_filesystems():
     assert info["device_name"] == "Digitakt II"
 
 
+def test_df_storage_sizes():
+    # elektroid-cli df prints "%-20.20s%16s%16s%16s%10.2f%%" under a header row
+    text = (f"{'Storage':<20}{'Size':>16}{'Used':>16}{'Available':>16}{'Use%':>11}\n"
+            f"{'+Drive':<20}{'20GiB':>16}{'15.7GiB':>16}{'4.3GiB':>16}{78.5:10.2f}%\n"
+            f"{'RAM':<20}{'64MiB':>16}{'1.5MiB':>16}{'62.5MiB':>16}{2.34:10.2f}%\n")
+    assert [(s.name, s.size, s.used, s.free) for s in parse_df(text)] == [
+        ("+Drive", 20 * 1024**3, round(15.7 * 1024**3), round(4.3 * 1024**3)),
+        ("RAM", 64 * 1024**2, round(1.5 * 1024**2), round(62.5 * 1024**2))]
+
+
 def test_project_ls_older_elektroid_format():
     # older releases: type index perms valid metadata size name (Elektroid README)
     text = "D  -1 0000 0 0         0B projects\nF   1 0012 1 1       160B KICK\nF  12 0012 1 1     1.5MiB MY SONG\n"
@@ -55,3 +65,15 @@ def test_sample_ls_readme_example():
     es = parse_sample_ls(text)
     assert [(e.kind, e.name, e.hash) for e in es] == [("D", "drum machines", "00000000"), ("F", "saw", "f8711cd9"),
                                                      ("F", "square", "0bbc22bd")]
+
+
+def test_storage_is_empty_where_elektroid_has_no_stats():
+    import subprocess
+    import pytest
+    from sample_shepherd.sync.device import DeviceError
+    from sample_shepherd.sync.elektron import ElektronDevice
+    fail = lambda args: subprocess.CompletedProcess(args, 1, b"", b"Storage stats not implemented")
+    assert ElektronDevice(runner=fail).storage() == []
+    gone = lambda args: subprocess.CompletedProcess(args, 1, b"", b"Error while connecting to device 1")
+    with pytest.raises(DeviceError):
+        ElektronDevice(runner=gone).storage()

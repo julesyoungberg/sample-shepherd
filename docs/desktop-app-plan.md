@@ -7,7 +7,7 @@ with its style sheet page (`app/`, see [app/README.md](../app/README.md)), and t
 cut of the Library screen (folder tree, terrain, table, filters) fed by a recorded `library ls`
 run, the Export check and Plan screens fed by recorded `export check` and `plan-edit` runs,
 the Device screen's +Drive map fed by a recorded `device listing` run and marked from the plan
-(positioned elements, not canvas yet, and no free space until `device info` reports capacity),
+with free space from a recorded `device info` run (positioned elements, not canvas yet),
 and the Tauri shell (`app/src-tauri/`) that opens it in a native window. The sidecar
 is next.
 

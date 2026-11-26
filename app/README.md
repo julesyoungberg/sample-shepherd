@@ -80,12 +80,16 @@ On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
   row changes.
 - `src/routes/plan/+page.svelte`: the Sync plan screen.
 - `src/lib/device.ts`: parses `device listing --json` rows, takes each sample's mark (used
-  by a project, or deleted) from the plan's rows, and lays out the +Drive map.
+  by a project, or deleted) from the plan's rows, and lays out the +Drive map. Reads the
+  +Drive's size and free space from `device info --json`.
 - `src/lib/fixtures/device-listing.jsonl`: a recorded `device listing` run on the fake
   device (`tests/fake/elektroid-cli`) holding the plan fixture's device files plus three
   outside any synced folder. Sizes are rounded as Elektroid prints them. Re-record it if the
   `listing` row changes.
-- `src/routes/device/+page.svelte`: the Device screen's +Drive map. Positioned elements for
+- `src/lib/fixtures/device-info.jsonl`: a recorded `device info` run on that same fake
+  device, with `FAKE_ELEKTROID_DRIVE_BYTES=4194304` (a 4 MiB +Drive) so free space shows.
+- `src/routes/device/+page.svelte`: the Device screen's space strip (each folder's share of
+  the drive, then free space) and +Drive map. Positioned elements for
   now; the plan's canvas comes when a full drive is too slow.
 - `tests/library.spec.ts`: the Library screen lists the fixture, its filters work, and
   the terrain sizes folders by sample count.
@@ -93,7 +97,7 @@ On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
 - `tests/plan.spec.ts`: the Sync plan lists every row with its totals, and the flow sizes
   actions by bytes and filters on click.
 - `tests/device.spec.ts`: the +Drive map draws every sample sized by bytes and marks used
-  and deleted ones.
+  and deleted ones; the space strip sizes folders against the drive's capacity.
 - `tests/style.spec.ts`: the style sheet renders, and every category color keeps 3:1
   contrast on both backgrounds (the WCAG minimum for graphics).
 - `src-tauri/tauri.conf.json`: the window, the content security policy (only the app's

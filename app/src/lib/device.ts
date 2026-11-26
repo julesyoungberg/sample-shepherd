@@ -1,6 +1,6 @@
 // The Device screen's data: `device listing --json` rows drawn as the +Drive map, marked
-// with what a sync plan would do to each file.
-import { parseEvents, type ListingRow, type PlanRow } from './events';
+// with what a sync plan would do to each file, and `device info --json` for its free space.
+import { parseEvents, type ListingRow, type PlanRow, type StorageRow } from './events';
 
 export type ListingSummary = { files: number; bytes: number };
 
@@ -10,6 +10,10 @@ export function parseListing(text: string): { rows: ListingRow[]; summary: Listi
   const result = events.find((e) => e.type === 'result');
   return { rows, summary: (result?.summary as ListingSummary | undefined) ?? null };
 }
+
+// The +Drive's capacity, or null when the device didn't report it.
+export const parseDrive = (text: string): StorageRow | null =>
+  parseEvents(text).find((e): e is StorageRow => e.type === 'row' && e.kind === 'storage' && e.name === '+Drive') ?? null;
 
 // A project uses it (keep it), or the plan deletes it. Protected paths are kept but not
 // marked: they're kept by rule, not because a project needs them.

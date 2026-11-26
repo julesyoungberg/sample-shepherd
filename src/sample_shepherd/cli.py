@@ -240,11 +240,12 @@ def _device(cfg):
     return get_backend(cfg)
 
 
-def _dry_device(cfg, a, op: str) -> bool:
+def _dry_device(cfg, a, *ops: str) -> bool:
     """For a read-only device command's --dry-run: say what would run, touch nothing."""
     if not a.dry_run:
         return False
-    _out(f"would run: {_device(cfg).describe(op)}")
+    for op in ops:
+        _out(f"would run: {_device(cfg).describe(op)}")
     _out("(dry run: the device wasn't contacted)")
     return True
 
@@ -262,12 +263,16 @@ def cmd_device_ls(cfg, a) -> int:
 
 
 def cmd_device_info(cfg, a) -> int:
-    if _dry_device(cfg, a, "info"):
+    if _dry_device(cfg, a, "info", "storage"):
         return 0
     with device_lock(cfg.lock_file):
         info = _device(cfg).info()
+        storage = _device(cfg).storage()
     for k, v in info.items():
         _out(f"{k}: {', '.join(v) if isinstance(v, list) else v}")
+    for s in storage:
+        a.events.emit("row", kind="storage", name=s.name, size=s.size, used=s.used, free=s.free)
+        _out(f"{s.name}: {fmt_bytes(s.used)} used of {fmt_bytes(s.size)}, {fmt_bytes(s.free)} free")
     if "sample" not in info.get("filesystems", []):
         _out("note: this device has no sample filesystem, so sample sync isn't supported")
     return 0
@@ -668,7 +673,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     d = sub.add_parser("device", help="connected devices and their sample storage").add_subparsers(dest="sub", required=True)
     add(d, "ls", cmd_device_ls, "list connected devices", dry=True)
-    add(d, "info", cmd_device_info, "show the device's filesystems (what it supports)", dry=True)
+    add(d, "info", cmd_device_info, "show the device's filesystems and free space", dry=True)
     p = add(d, "listing", cmd_device_listing, "list the sample storage to CSV (read-only)", dry=True)
     p.add_argument("--out", required=True, help="CSV to write: path,size,hash")
     p.add_argument("--root", default="/", help="device folder to list (default /)")

@@ -4,6 +4,7 @@
 $FAKE_ELEKTROID_ROOT/drive/      the sample storage (+Drive); files are stored without extension
 $FAKE_ELEKTROID_ROOT/projects/   <slot>.dt2prj, one per project slot; <slot>.name holds its name
 $FAKE_ELEKTROID_ROOT/calls.log   one line per call
+$FAKE_ELEKTROID_DRIVE_BYTES      the +Drive's size for df (default 1 GiB)
 $FAKE_ELEKTROID_FAIL             uploads whose source path, or project downloads whose name,
                                  contains this text fail (a download leaves half a file)
 
@@ -51,6 +52,13 @@ def main(argv):
         print("Type: MIDI\nDevice name: Digitakt II\nDevice version: 1.15\n"
               "Device description: Elektron Digitakt II\nConnector: elektron\n"
               "Filesystems: data, preset-takt-ii, project, sample, raw (CLI only)")
+        return
+    if cmd == "df":
+        local(argv[1])
+        size = int(os.environ.get("FAKE_ELEKTROID_DRIVE_BYTES", 1024**3))
+        used = sum(p.stat().st_size for p in DRIVE.rglob("*") if p.is_file())
+        print(f"{'Storage':<20}{'Size':>16}{'Used':>16}{'Available':>16}{'Use%':>11}")
+        print(f"{'+Drive':<20}{human(size):>16}{human(used):>16}{human(size - used):>16}{100 * used / size:10.2f}%")
         return
     if cmd == "elektron:sample:ls":
         d = local(argv[1])

@@ -83,6 +83,15 @@ def test_device_listing_streams_each_file(run_json, fake_device, tmp_path):
     assert evs[-1]["summary"] == {"files": 2, "bytes": 1300, "out": "listing.csv"}
 
 
+def test_device_info_sends_storage_rows(run_json, fake_device):
+    (fake_device / "drive" / "BD").write_bytes(b"k" * 2 * 1024**2)
+    code, evs, err = run_json("device", "info")
+    assert code == 0, err
+    rows = [e for e in evs if e["type"] == "row"]
+    assert rows == [{"v": 1, "type": "row", "kind": "storage", "name": "+Drive",
+                     "size": 1024**3, "used": 2 * 1024**2, "free": 1022 * 1024**2}]
+
+
 def test_plan_streams_each_row_and_totals(run_json, tmp_path):
     make_wav(tmp_path / "render" / "01_KICKS" / "BD 01.wav")
     make_wav(tmp_path / "render" / "01_KICKS" / "BD 02.wav")

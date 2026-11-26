@@ -2,7 +2,8 @@ import { expect, test, type Locator } from '@playwright/test';
 
 // The fixtures: src/lib/fixtures/device-listing.jsonl, a recorded `device listing --json` run
 // on the fake device holding the plan fixture's device files plus three outside any synced
-// folder; and plan.jsonl, which marks 2 used samples and 2 deletes among them.
+// folder; plan.jsonl, which marks 2 used samples and 2 deletes among them; and
+// device-info.jsonl, a recorded `device info` run on that fake device with a 4 MiB +Drive.
 const box = async (l: Locator) => {
   const b = await l.boundingBox();
   if (!b) throw new Error(`${l} isn't drawn`);
@@ -36,4 +37,12 @@ test('samples a project uses and ones the plan deletes are marked', async ({ pag
   await expect(map.getByRole('img', { name: /the plan deletes it/ })).toHaveCount(2);
   // An excluded delete stays on the device, so it isn't marked.
   await expect(map.getByRole('img', { name: '/04_HATS/Closed/HH_CL_OLD, 29 KB' })).toBeVisible();
+});
+
+test("the space strip shows each folder's share of the drive and the free space", async ({ page }) => {
+  await page.goto('/device');
+  await expect(page.getByText('1.3 MB used of 4.0 MB, 2.7 MB free')).toBeVisible();
+  const strip = page.getByRole('img', { name: '+Drive space: 2.7 MB free' });
+  const [all, recorded] = await Promise.all([box(strip), box(strip.locator('[data-folder="recorded"]'))]);
+  expect(recorded.width / all.width).toBeCloseTo(440013 / 4194304, 2);
 });
