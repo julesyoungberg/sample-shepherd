@@ -152,9 +152,11 @@ class ElektronDevice(Device):
     def storage(self) -> list[Storage]:
         try:
             return parse_df(self._run("df", self._p("/"), tries=1))
-        except DeviceError:
+        except DeviceError as e:
             # Elektroid has no storage stats for some devices (no sample storage, e.g. Digitone)
-            return []
+            if "Storage stats not implemented" in str(e):
+                return []
+            raise
 
     def ls(self, path: str) -> list[Entry]:
         return parse_sample_ls(self._run(f"elektron:{self.sample_fs}:ls", self._p(path)))

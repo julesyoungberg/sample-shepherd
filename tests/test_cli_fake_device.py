@@ -213,10 +213,10 @@ def test_used_refuses_an_incomplete_backup(run, world, fake_device, tmp_path, mo
 
 
 def test_read_only_device_commands_dry_run_without_contacting_it(run, world, fake_device):
-    for args, shown in [(("device", "ls"), " ld"), (("device", "info"), " df 1:/"),
-                        (("projects", "ls"), " elektron:project:ls 1:/")]:
+    for args, shown in [(("device", "ls"), [" ld"]), (("device", "info"), [" info 1", " df 1:/"]),
+                        (("projects", "ls"), [" elektron:project:ls 1:/"])]:
         code, out = run(*args, "--dry-run")
-        assert code == 0 and "would run:" in out and shown in out, out
+        assert code == 0 and "would run:" in out and all(s in out for s in shown), out
     assert calls(fake_device) == []
 
 

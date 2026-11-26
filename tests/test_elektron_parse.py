@@ -69,6 +69,11 @@ def test_sample_ls_readme_example():
 
 def test_storage_is_empty_where_elektroid_has_no_stats():
     import subprocess
+    import pytest
+    from sample_shepherd.sync.device import DeviceError
     from sample_shepherd.sync.elektron import ElektronDevice
     fail = lambda args: subprocess.CompletedProcess(args, 1, b"", b"Storage stats not implemented")
     assert ElektronDevice(runner=fail).storage() == []
+    gone = lambda args: subprocess.CompletedProcess(args, 1, b"", b"Error while connecting to device 1")
+    with pytest.raises(DeviceError):
+        ElektronDevice(runner=gone).storage()
