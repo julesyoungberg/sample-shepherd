@@ -231,7 +231,7 @@ reviews that one page; every later screen reuses it.
 6. **Plan.** The sync plan drawn as a flow (below) above the row list. Rows can be
    excluded; protected and project-used rows explain why they're kept. Writes the plan CSV.
 7. **Sync.** Live progress from the event stream: bytes, files, ETA at the link's real
-   rate (about 77 KB/s on the Digitakt II), current file's waveform as the progress bar,
+   rate (about 75 KiB/s on the Digitakt II), current file's waveform as the progress bar,
    a log you can filter, Stop (resumable) and Resume.
 8. **Settings.** Paths, work folder, theme, keyboard shortcuts.
 

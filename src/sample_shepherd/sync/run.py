@@ -115,7 +115,7 @@ def run_sync(device: Device, rows: list[PlanRow], log_path: Path, used: list[Use
                 rate = sent / el if el > 0 else 0
                 left = (len(todo) - i) * el / i
                 out(f"{i}/{len(todo)} files, {fmt_bytes(sent)}, {fmt_duration(el)} elapsed, "
-                    f"~{fmt_duration(left)} left ({rate / 1000:.0f} KB/s measured), {stats['failed']} failures")
+                    f"~{fmt_duration(left)} left ({rate / 1024:.0f} KiB/s measured), {stats['failed']} failures")
 
         if todo:
             report(len(todo))

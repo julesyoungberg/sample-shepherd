@@ -100,7 +100,7 @@ sample-shepherd sync --plan plan.csv --used used.csv --yes      # uploads, then 
 ```
 
 Stop it any time (Ctrl-C, a dropped cable): run the same command again and it carries on
-from its log (`plan-log.csv`). Transfers are slow (about 77 KB/s plus 1.6 s per file on a
+from its log (`plan-log.csv`). Transfers are slow (about 75 KiB/s plus 1.6 s per file on a
 Digitakt II), so `plan` and `sync --dry-run` print a time estimate. Set `[transfer]` in the
 config to your own speeds; `sync` prints the measured speed as it goes.
 

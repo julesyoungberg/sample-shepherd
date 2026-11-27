@@ -184,7 +184,7 @@ def summarize(rows: list[PlanRow], transfer) -> str:
         if t[k]:
             lines.append(f"{k}: {t[k]}")
     lines.append(f"estimated time: about {fmt_duration(t['est_seconds'])} "
-                 f"(at {transfer.bytes_per_second / 1000:.0f} KB/s + {transfer.seconds_per_call} s per call)")
+                 f"(at {transfer.bytes_per_second / 1024:.0f} KiB/s + {transfer.seconds_per_call} s per call)")
     return "\n".join(lines)
 
 

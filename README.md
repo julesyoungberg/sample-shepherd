@@ -15,7 +15,7 @@ It's one command, `sample-shepherd`, with three layers:
    through [Elektroid](https://github.com/dagargo/elektroid)'s `elektroid-cli`.
 
 It was built for one producer's Digitakt II, a library of about 30,000 samples synced over a
-USB link that moves about 77 KB/s. So it's careful by default: every command that writes
+USB link that moves about 75 KiB/s. So it's careful by default: every command that writes
 or touches a device has `--dry-run`, nothing deletes without `--yes`, and a sample a project
 uses is never deleted.
 

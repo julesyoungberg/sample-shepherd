@@ -11,11 +11,11 @@
     ['text-sm', 'Names over 32 characters are shortened on export.']
   ];
   const rows = [
-    { name: 'KICK_TAPE_01.wav', category: 'kick', duration: '0.42', ch: 'mono', size: '74 KB', action: 'upload' },
-    { name: 'SNR_ROOM_B.wav', category: 'snare', duration: '0.61', ch: 'stereo', size: '214 KB', action: 'keep' },
-    { name: 'HAT_CLOSED_7.wav', category: 'hat', duration: '0.12', ch: 'mono', size: '21 KB', action: 'delete' },
-    { name: 'SUB_DRONE_C.wav', category: 'bass', duration: '2.80', ch: 'mono', size: '494 KB', action: 'upload' },
-    { name: 'VOX_CHOP_3.wav', category: 'vocal', duration: '1.05', ch: 'stereo', size: '371 KB', action: 'keep' }
+    { name: 'KICK_TAPE_01.wav', category: 'kick', duration: '0.42', ch: 'mono', size: '74 KiB', action: 'upload' },
+    { name: 'SNR_ROOM_B.wav', category: 'snare', duration: '0.61', ch: 'stereo', size: '214 KiB', action: 'keep' },
+    { name: 'HAT_CLOSED_7.wav', category: 'hat', duration: '0.12', ch: 'mono', size: '21 KiB', action: 'delete' },
+    { name: 'SUB_DRONE_C.wav', category: 'bass', duration: '2.80', ch: 'mono', size: '494 KiB', action: 'upload' },
+    { name: 'VOX_CHOP_3.wav', category: 'vocal', duration: '1.05', ch: 'stereo', size: '371 KiB', action: 'keep' }
   ];
 
   // Seeded noise with a decaying envelope, so the waveform looks the same on every load.

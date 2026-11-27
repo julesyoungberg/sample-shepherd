@@ -282,3 +282,17 @@ triggers share this file). Newest last.
   screen from a recorded `organize build` run (needs `--json` rows for what moved).
 - Open questions for Jules: OK to add `@tauri-apps/api` (app) and PyInstaller (build only)?
 - Budget: 25, 35 and 35 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-26 (Thursday, weekday run)
+
+- Minutes used: about 20 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR #43 "Print sizes in KiB/MiB/GiB in both the CLI and the app" (closes #42,
+  filed by Jules). `fmt_bytes` and the app's `formatSize` now share one rule, binary
+  units as elektroid-cli prints them; transfer rates print in KiB/s.
+- State found: tests green on main, no open PRs; #42 the only open issue. Jules approved
+  `@tauri-apps/api` and PyInstaller on 2026-11-25.
+- Next: the sidecar wiring, now unblocked: a Rust command that runs
+  `sample-shepherd --json library ls` and feeds `/library` through `@tauri-apps/api`.
+  Then the PyInstaller sidecar build.
+- Open questions for Jules: none new.
+- Budget: 35, 35 and 20 minutes of 45; not all under half or at the cap, so no change.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import contextlib
 import csv
+import math
 import os
 import re
 import struct
@@ -23,11 +24,17 @@ def parse_human_size(text: str) -> int:
 
 
 def fmt_bytes(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB"):
-        if abs(n) < 1000 or unit == "GB":
-            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.2f} {unit}"
-        n /= 1000
-    return f"{n:.2f} GB"
+    """Binary units, as elektroid-cli prints them. The app's formatSize matches."""
+    # Rounds halves up, as the app's Math.round and toFixed do (Python's format rounds to even).
+    for unit in ("B", "KiB", "MiB"):
+        if abs(n) < 1024:
+            break
+        n /= 1024
+    else:
+        unit = "GiB"
+    if unit in ("B", "KiB"):
+        return f"{math.floor(n + 0.5)} {unit}"
+    return f"{math.floor(n * 10 + 0.5) / 10:.1f} {unit}"
 
 
 def fmt_duration(seconds: float) -> str:
