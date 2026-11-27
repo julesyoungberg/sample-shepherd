@@ -4,7 +4,7 @@
   <p class="label">00 Start</p>
   <h1 class="mt-2 text-2xl font-semibold">sample-shepherd</h1>
   <ul class="mt-4 space-y-1">
-    <li><a href="/library">Library</a>: browse the indexed samples (from a recorded fixture for now).</li>
+    <li><a href="/library">Library</a>: browse the indexed samples (the CLI's `library ls` in the desktop window).</li>
     <li><a href="/export">Export check</a>: what the device would refuse in a render (from a recorded fixture for now).</li>
     <li><a href="/device">Device</a>: the +Drive map, marked with what the sync plan does (from recorded fixtures for now).</li>
     <li><a href="/plan">Sync plan</a>: what a sync would upload, delete and keep (from a recorded fixture for now).</li>
