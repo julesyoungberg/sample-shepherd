@@ -4,12 +4,12 @@ A desktop app over the `sample-shepherd` CLI: browse and audition the library, r
 and export, see what's on the device, review a sync plan visually, and watch a sync run.
 Written 2026-11-07. Built so far: the CLI pieces of milestone 1 and the frontend scaffold
 with its style sheet page (`app/`, see [app/README.md](../app/README.md)), and the first
-cut of the Library screen (folder tree, terrain, table, filters) fed by a recorded `library ls`
-run, the Export check and Plan screens fed by recorded `export check` and `plan-edit` runs,
+cut of the Library screen (folder tree, terrain, table, filters), which runs `library ls`
+through the shell in the desktop window and reads a recorded run in a browser, the Export check and Plan screens fed by recorded `export check` and `plan-edit` runs,
 the Device screen's +Drive map fed by a recorded `device listing` run and marked from the plan
 with free space from a recorded `device info` run (positioned elements, not canvas yet),
-and the Tauri shell (`app/src-tauri/`) that opens it in a native window. The sidecar
-is next.
+and the Tauri shell (`app/src-tauri/`) that opens it in a native window. The shell runs
+`sample-shepherd` from `PATH`; the PyInstaller sidecar build is next.
 
 ## Summary
 

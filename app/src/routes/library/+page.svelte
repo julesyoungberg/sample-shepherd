@@ -1,17 +1,16 @@
 <script lang="ts">
   import { filterSamples, folderTree, formatSize, icicle, paletteFor, parseSamples, type Filters } from '$lib/library';
-  // shortcut: a recorded `library ls --json` run stands in for the CLI; load from the sidecar once the Tauri shell exists.
-  import fixture from '$lib/fixtures/library-ls.jsonl?raw';
 
   // shortcut: renders at most this many rows; add TanStack Virtual (in the plan) when real libraries make this cap bite.
   const MAX_ROWS = 500;
 
-  const samples = parseSamples(fixture);
-  const folders = folderTree(samples);
-  const terrain = icicle(samples);
-  const terrainDepth = Math.max(0, ...terrain.map((f) => f.depth + 1));
-  const categoryOptions = [...new Set(samples.map((s) => s.category).filter(Boolean))].sort();
-  const ratingOptions = [...new Set(samples.map((s) => s.rating ?? 'unrated'))].sort();
+  let { data } = $props();
+  let samples = $derived(parseSamples(data.text));
+  let folders = $derived(folderTree(samples));
+  let terrain = $derived(icicle(samples));
+  let terrainDepth = $derived(Math.max(0, ...terrain.map((f) => f.depth + 1)));
+  let categoryOptions = $derived([...new Set(samples.map((s) => s.category).filter(Boolean))].sort());
+  let ratingOptions = $derived([...new Set(samples.map((s) => s.rating ?? 'unrated'))].sort());
 
   let filters: Required<Filters> = $state({ text: '', folder: '', category: '', channels: '', rating: '' });
   let shown = $derived(filterSamples(samples, filters));
@@ -35,6 +34,7 @@
       {#each ratingOptions as r}<option value={r}>{r}</option>{/each}
     </select>
     <p class="label ml-auto" aria-live="polite">{shown.length} of {samples.length} samples</p>
+    {#if data.error}<p class="basis-full text-sm text-signal" role="alert">{data.error}</p>{/if}
   </header>
 
   <nav class="overflow-auto border-r border-rule py-2 font-mono text-xs" aria-label="Folders">
