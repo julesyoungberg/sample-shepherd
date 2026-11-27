@@ -87,8 +87,9 @@ def test_parse_human_size():
 
 def test_fmt_bytes_uses_binary_units_like_elektroid():
     # The app's formatSize (app/src/lib/library.ts) follows the same rule.
-    assert [fmt_bytes(n) for n in (512, 29 * 1024, 4 * 1024 ** 2, 1024 ** 3)] == \
-        ["512 B", "29 KiB", "4.0 MiB", "1.0 GiB"]
+    sizes = (1023, 1024, 2560, 29 * 1024, 1310720, 4 * 1024 ** 2, 1024 ** 3)
+    assert [fmt_bytes(n) for n in sizes] == \
+        ["1023 B", "1 KiB", "3 KiB", "29 KiB", "1.3 MiB", "4.0 MiB", "1.0 GiB"]
 
 
 def test_lock_is_per_device_not_per_work_dir(tmp_path, monkeypatch):
