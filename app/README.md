@@ -30,6 +30,9 @@ What exists:
 
 Not here yet: the PyInstaller sidecar. Until then the window runs `sample-shepherd` from
 `PATH`, so install the CLI first (`uv pip install -e .` in the repo root, or `pipx`).
+That only works when the app starts from a shell (`pnpm tauri dev`, or the binary from a
+terminal): a macOS app opened from Finder gets the system `PATH` and shows "couldn't run
+sample-shepherd".
 
 ## Run it
 

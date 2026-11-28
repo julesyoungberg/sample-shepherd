@@ -89,13 +89,14 @@ const shell = (page: Page, answer: { stream?: string; reject?: string }) =>
 test('in the desktop window the library comes from the CLI', async ({ page }) => {
   const row = { v: 1, type: 'row', kind: 'sample', path: 'KICKS/LIVE.wav', folder: 'KICKS', category: 'KICKS',
     duration: 0.5, sample_rate: 44100, channels: 1, size: 44144, sha256: 'x', rating: null };
-  await shell(page, { stream: JSON.stringify(row) + '\n' });
+  const result = { v: 1, type: 'result', ok: true, exit: 0, summary: { samples: 1 } };
+  await shell(page, { stream: [row, result].map((e) => JSON.stringify(e)).join('\n') });
   await page.goto('/library');
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page)).toContainText('LIVE.wav');
 });
 
-test("the CLI's error, or why it couldn't run, shows on the screen", async ({ page }) => {
+test("the CLI's error, or why it couldn't run or finish, shows on the screen", async ({ page }) => {
   const error = { v: 1, type: 'error', code: 'user_error', msg: 'no library index yet: run library index', exit: 2 };
   await shell(page, { stream: JSON.stringify(error) + '\n' });
   await page.goto('/library');
@@ -106,4 +107,11 @@ test("the CLI's error, or why it couldn't run, shows on the screen", async ({ pa
   await other.goto('/library');
   await expect(other.getByRole('alert')).toHaveText("couldn't run sample-shepherd: not found");
   await expect(rows(other)).toHaveCount(0);
+
+  const killed = await page.context().newPage();
+  const row = { v: 1, type: 'row', kind: 'sample', path: 'A.wav', folder: '', category: null,
+    duration: 1, sample_rate: 44100, channels: 1, size: 1, sha256: 'x', rating: null };
+  await shell(killed, { stream: JSON.stringify(row) + '\n' });
+  await killed.goto('/library');
+  await expect(killed.getByRole('alert')).toHaveText('sample-shepherd stopped before it finished');
 });
