@@ -13,7 +13,9 @@ What exists:
   later screen reuses these pieces.
 - `/library`, the Library screen: folder tree, the terrain (folders as nested bands, each
   as wide as its share of the samples, colored by category), sample table, and filters by
-  text, category, channels and rating. It reads a recorded `library ls --json` run until the sidecar exists.
+  text, category, channels and rating. In the desktop window it runs `library ls --json`;
+  in a browser (`pnpm dev`, `pnpm test`) it reads a recorded run. The CLI's error shows
+  above the table.
 - `/export`, the Export check: every issue `export check --json` found in a render, sorted
   by path, with the file and folder counts. It reads a recorded run until the sidecar exists.
 - `/plan`, the Sync plan: the plan's totals, two flows (the export into the device, and
@@ -21,10 +23,16 @@ What exists:
   and its reason. Clicking a band filters the rows. It reads a recorded run until the
   sidecar exists, so rows can't be excluded from here yet.
 
-- `src-tauri/`, the Tauri 2 shell: a native window that loads the built frontend. It has
-  no Rust commands yet, so the screens still read recorded fixtures.
+- `src-tauri/`, the Tauri 2 shell: a native window that loads the built frontend. Its one
+  command, `library_ls`, runs `sample-shepherd --json library ls` and hands the events to
+  the page (`src/lib/sidecar.ts`). Commands are named one by one, so the webview can only
+  run read-only ones. The other screens still read recorded runs.
 
-Not here yet: the CLI sidecar.
+Not here yet: the PyInstaller sidecar. Until then the window runs `sample-shepherd` from
+`PATH`, so install the CLI first (`uv pip install -e .` in the repo root, or `pipx`).
+That only works when the app starts from a shell (`pnpm tauri dev`, or the binary from a
+terminal): a macOS app opened from Finder gets the system `PATH` and shows "couldn't run
+sample-shepherd".
 
 ## Run it
 
@@ -48,6 +56,7 @@ packages in its setup script.
 pnpm tauri dev                  # window on the dev server, reloads as you edit
 pnpm tauri build --no-bundle    # release binary in src-tauri/target/release/
 pnpm tauri build                # installers (.dmg, .deb, ...) in src-tauri/target/release/bundle/
+(cd src-tauri && cargo test)    # Rust tests: how a failed or missing CLI comes back
 ```
 
 On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
@@ -92,7 +101,8 @@ On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
   the drive, then free space) and +Drive map. Positioned elements for
   now; the plan's canvas comes when a full drive is too slow.
 - `tests/library.spec.ts`: the Library screen lists the fixture, its filters work, and
-  the terrain sizes folders by sample count.
+  the terrain sizes folders by sample count. In a stand-in desktop window it shows what
+  the CLI sent, or its error.
 - `tests/export.spec.ts`: the Export check lists every issue in the fixture, sorted.
 - `tests/plan.spec.ts`: the Sync plan lists every row with its totals, and the flow sizes
   actions by bytes and filters on click.
@@ -102,6 +112,7 @@ On a Linux machine with no display, run the binary under Xvfb (`xvfb-run`).
   contrast on both backgrounds (the WCAG minimum for graphics).
 - `src-tauri/tauri.conf.json`: the window, the content security policy (only the app's
   own files; inline styles allowed because Svelte sets them) and the bundle icons.
-- `src-tauri/capabilities/default.json`: what the webview may call in Rust. Only Tauri's
-  core defaults for now.
+- `src-tauri/src/main.rs`: the Rust commands the webview may call (`library_ls`).
+- `src-tauri/capabilities/default.json`: which of Tauri's own plugins the webview may
+  call. Only the core defaults.
 - `src-tauri/icons/`: made from `static/favicon.svg` with `pnpm tauri icon static/favicon.svg`.

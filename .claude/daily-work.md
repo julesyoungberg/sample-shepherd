@@ -296,3 +296,18 @@ triggers share this file). Newest last.
   Then the PyInstaller sidecar build.
 - Open questions for Jules: none new.
 - Budget: 35, 35 and 20 minutes of 45; not all under half or at the cap, so no change.
+
+## 2026-11-27 (Friday, weekday run)
+
+- Minutes used: about 25 of 45 (active work; review wait not counted). Subagents: 0.
+- Shipped: PR #44 "Run library ls through the Tauri shell for the Library screen". The
+  shell's one command, `library_ls`, runs `sample-shepherd --json library ls` from `PATH`;
+  `/library` loads through `src/lib/sidecar.ts` and shows the CLI's error. A browser still
+  gets the recorded run. Checked in a real window under Xvfb with a stand-in CLI;
+  screenshot in project files, app-shell/library-from-cli-linux.png.
+- No `@tauri-apps/api`: `withGlobalTauri` gives the page `invoke` without a package.
+- State found: tests green on main, no open PRs or issues.
+- Next: the PyInstaller sidecar build (`app/sidecar/`) and spawning it by its resolved
+  path; then commands for the export, plan and device screens.
+- Open questions for Jules: none new.
+- Budget: 35, 20 and 25 minutes of 45; not all under half or at the cap, so no change.
